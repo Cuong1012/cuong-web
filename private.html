@@ -1,0 +1,3776 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Khu Vực Riêng Tư | Bảng Điều Khiển Bảo Mật</title>
+  <meta name="robots" content="noindex, nofollow" />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- SheetJS for Excel Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css?v=20260914c" />
+</head>
+<body>
+  <!-- AUTH GUARD SCRIPT -->
+  <script src="js/auth.js?v=20260914c"></script>
+  <script>
+    if (!DevLogAuth.isAuthenticated()) {
+      window.location.href = "login.html";
+    }
+
+    // Safety fallback: Đảm bảo các hàm đồng bộ mật khẩu luôn tồn tại kể cả khi trình duyệt điện thoại cache file js/auth.js cũ
+    if (typeof DevLogAuth !== "undefined") {
+      if (!DevLogAuth.syncPasswordsToCloud) {
+        DevLogAuth.syncPasswordsToCloud = async function(passwords, categories) {
+          const url = DevLogAuth.getCloudApiUrl();
+          if (!url) return { success: false, message: "Chưa cấu hình URL Google Apps Script!" };
+          try {
+            const response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify({
+                action: "sync_passwords",
+                passwords: passwords || [],
+                categories: categories || []
+              })
+            });
+            const result = await response.json();
+            if (result.status === "success") return { success: true, message: result.message };
+            return { success: false, message: result.message || "Lỗi khi đồng bộ mật khẩu lên Google Sheets" };
+          } catch (err) {
+            return { success: false, message: "Lỗi kết nối khi đồng bộ: " + err.message };
+          }
+        };
+      }
+
+      if (!DevLogAuth.fetchPasswordsFromCloud) {
+        DevLogAuth.fetchPasswordsFromCloud = async function() {
+          const url = DevLogAuth.getCloudApiUrl();
+          if (!url) return { success: false, message: "Chưa cấu hình URL Google Apps Script!" };
+          try {
+            const response = await fetch(url + (url.includes("?") ? "&" : "?") + "type=passwords");
+            const result = await response.json();
+            if (result.status === "success") {
+              return {
+                success: true,
+                passwords: result.passwords || [],
+                categories: result.passwordCategories || []
+              };
+            }
+            return { success: false, message: result.message || "Lỗi khi lấy mật khẩu từ Google Sheets" };
+          } catch (err) {
+            return { success: false, message: "Lỗi kết nối khi tải mật khẩu: " + err.message };
+          }
+        };
+      }
+    }
+  </script>
+
+  <!-- HEADER -->
+  <header class="private-header">
+    <div class="container private-nav">
+      <div class="private-brand">
+        <a href="index.html" class="brand-logo" title="Về trang chủ">
+          <span class="logo-mark"><i class="fa-solid fa-code"></i></span>
+          <span class="logo-text">cuongtv<span class="accent-dot">.</span></span>
+        </a>
+
+        <!-- Portal Navigation Dropdown Menu (Menu trên tiêu đề) -->
+        <div class="portal-nav-dropdown" id="portalNavDropdown">
+          <button type="button" class="portal-nav-trigger" id="portalNavTrigger" title="Bấm hoặc rê chuột để chuyển phân hệ">
+            <span id="activeNavLabel"><i class="fa-solid fa-book-bookmark" style="color: var(--primary);"></i> Ghi Chú &amp; Nhật Ký</span>
+            <i class="fa-solid fa-chevron-down" style="font-size: 0.72rem; margin-left: 6px; opacity: 0.7;"></i>
+          </button>
+          <div class="portal-nav-menu" id="portalNavMenu">
+            <div class="portal-nav-item active" id="navItemNotes">
+              <i class="fa-solid fa-book-bookmark" style="color: var(--primary);"></i> Ghi Chú &amp; Nhật Ký
+            </div>
+            <div class="portal-nav-item" id="navItemPasswords">
+              <i class="fa-solid fa-vault" style="color: #ec4899;"></i> Mật Khẩu &amp; Tài Khoản (<span id="pwdCountBadge">0</span>)
+            </div>
+            <div class="portal-nav-item" id="navItemDeclarations">
+              <i class="fa-solid fa-id-card" style="color: #3b82f6;"></i> Danh Sách Khai Báo (<span id="declCountBadge">0</span>)
+            </div>
+            <div class="portal-nav-item" id="navItemFiles">
+              <i class="fa-brands fa-google-drive" style="color: #10b981;"></i> Tệp &amp; Tài Liệu Drive (<span id="fileCountBadge">0</span>)
+            </div>
+            <div class="portal-nav-item" id="navItemCalendar">
+              <i class="fa-regular fa-calendar-days" style="color: #f59e0b;"></i> Google Lịch
+            </div>
+            <div class="portal-nav-divider"></div>
+            <a href="clipboard.html" target="_blank" class="portal-nav-item" style="text-decoration: none;">
+              <i class="fa-regular fa-image" style="color: #8b5cf6;"></i> Xem Ảnh Clipboard
+              <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.72rem; margin-left: auto; opacity: 0.5;"></i>
+            </a>
+            <a href="image-to-pdf.html" target="_blank" class="portal-nav-item" style="text-decoration: none;">
+              <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i> Chuyển Ảnh Sang PDF
+              <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.72rem; margin-left: auto; opacity: 0.5;"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="private-actions">
+        <!-- Google Drive Cloud Status Icon Badge (Chỉ hiện icon xanh / đỏ, rê chuột báo trạng thái) -->
+        <div id="cloudStatusBadge" class="cloud-status-badge disconnected" title="Google Drive: Chưa kết nối (Bấm để kết nối)">
+          <i class="fa-solid fa-cloud-slash"></i>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button id="themeToggle" class="icon-btn" title="Chuyển chế độ Sáng / Tối">
+          <i class="fa-regular fa-moon dark-icon"></i>
+          <i class="fa-regular fa-sun light-icon"></i>
+        </button>
+
+        <!-- Change Password Button -->
+        <button id="openChangePassBtn" class="btn btn-secondary private-header-btn" style="padding: 8px 14px; font-size: 0.88rem;" title="Đổi Mật Khẩu Đăng Nhập">
+          <i class="fa-solid fa-key"></i> <span class="header-btn-text">Đổi Mật Khẩu</span>
+        </button>
+
+        <!-- Logout Button -->
+        <button id="logoutBtn" class="btn btn-primary private-header-btn" style="padding: 8px 16px; font-size: 0.88rem; background: var(--danger);" title="Đăng Xuất">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="header-btn-text">Đăng Xuất</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top: 15px;">
+
+    <!-- =========================================================
+         VIEW 1: GHI CHÚ & NHẬT KÝ (NOTES VIEW)
+         ========================================================= -->
+    <section class="dashboard-hero" id="notesView">
+      <div class="dashboard-welcome">
+        <div class="welcome-text">
+          <h1>Xin chào, Trịnh Việt Cường 👋</h1>
+          <p>Không gian lưu trữ nhật ký cá nhân, ý tưởng dự án và đồng bộ Google Drive.</p>
+        </div>
+        <div class="toolbar-actions">
+          <button id="openAddNoteBtn" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Tạo Ghi Chú Mới
+          </button>
+          <button id="syncCloudBtn" class="btn btn-secondary" title="Đồng bộ dữ liệu với Google Drive">
+            <i class="fa-solid fa-arrows-rotate" id="syncIcon"></i> Đồng Bộ Drive
+          </button>
+          <button id="openCloudConfigBtn" class="btn btn-secondary" title="Cài đặt kết nối Google Sheets">
+            <i class="fa-brands fa-google-drive"></i> Cài Đặt Drive
+          </button>
+          <button id="exportNotesBtn" class="btn btn-secondary" title="Tải file dữ liệu JSON về máy">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Sao Lưu
+          </button>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="dash-stats-grid">
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statTotalNotes">0</h4>
+            <span>Tổng mục lưu trữ</span>
+          </div>
+        </div>
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: #3b82f6; background: rgba(59,130,246,0.15);"><i class="fa-solid fa-feather-pointed"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statDiaryNotes">0</h4>
+            <span>Nhật ký riêng</span>
+          </div>
+        </div>
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: #a855f7; background: rgba(168,85,247,0.15);"><i class="fa-solid fa-lightbulb"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statIdeaNotes">0</h4>
+            <span>Ý tưởng dự án</span>
+          </div>
+        </div>
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: #ef4444; background: rgba(239,68,68,0.15);"><i class="fa-solid fa-vault"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statAccountNotes">0</h4>
+            <span>Tài khoản / Khóa</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBAR -->
+      <div class="dashboard-toolbar">
+        <div class="search-private-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="searchPrivateInput" placeholder="Tìm kiếm ghi chú riêng tư..." />
+        </div>
+
+        <div class="categories-filter" style="margin-bottom: 0;">
+          <button class="filter-btn active" data-tag="all">Tất cả</button>
+          <button class="filter-btn" data-tag="diary">Nhật ký</button>
+          <button class="filter-btn" data-tag="idea">Ý tưởng</button>
+          <button class="filter-btn" data-tag="account">Tài khoản</button>
+          <button class="filter-btn" data-tag="work">Công việc</button>
+        </div>
+      </div>
+
+      <!-- NOTES LIST -->
+      <div class="private-notes-grid" id="privateNotesGrid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VIEW 2: TỆP & TÀI LIỆU DRIVE (FILES VIEW)
+         ========================================================= -->
+    <section class="dashboard-hero" id="filesView" style="display: none;">
+      <div class="dashboard-welcome">
+        <div class="welcome-text">
+          <h1>Tệp &amp; Tài Liệu Google Drive 📁</h1>
+          <p>Tải tệp trực tiếp lên thư mục <strong>"DevLog Uploads"</strong> trong Google Drive cá nhân của bạn.</p>
+        </div>
+        <div class="toolbar-actions">
+          <button id="triggerUploadBtn" class="btn btn-primary">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Chọn Tệp Tải Lên
+          </button>
+          <a href="clipboard.html" target="_blank" class="btn btn-secondary" title="Mở Trình Xem & Dán Ảnh Clipboard">
+            <i class="fa-regular fa-image"></i> Xem Ảnh Clipboard ↗
+          </a>
+          <button id="refreshFilesBtn" class="btn btn-secondary">
+            <i class="fa-solid fa-arrows-rotate" id="refreshFilesIcon"></i> Tải Lại Danh Sách
+          </button>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Upload Zone -->
+      <div class="upload-dropzone" id="uploadDropzone">
+        <input type="file" id="fileInput" multiple hidden />
+        <div class="dropzone-icon">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <h3 class="dropzone-title">Kéo thả tệp vào đây, bấm <span style="font-family: var(--font-mono); font-weight: 700; color: var(--primary);">Ctrl + V</span> để dán ảnh, hoặc <span style="color: var(--primary); text-decoration: underline;">chọn từ máy tính</span></h3>
+        <p class="dropzone-hint">Hỗ trợ Ảnh (PNG, JPG, WebP), PDF, Word, Excel, File nén (ZIP, RAR) tối đa 25MB.</p>
+
+        <!-- Progress Indicator -->
+        <div class="upload-progress-container" id="uploadProgressContainer">
+          <div class="upload-progress-bar">
+            <div class="upload-progress-fill"></div>
+          </div>
+          <div class="upload-progress-text" id="uploadProgressText">
+            <i class="fa-solid fa-spinner fa-spin"></i> Đang tải tệp lên Google Drive...
+          </div>
+        </div>
+      </div>
+
+      <!-- Files Search Bar -->
+      <div class="dashboard-toolbar">
+        <div class="search-private-box" style="max-width: 360px;">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="searchFilesInput" placeholder="Tìm kiếm tệp theo tên..." />
+        </div>
+        <div style="font-size: 0.9rem; color: var(--text-muted);">
+          Tệp được lưu trữ vĩnh viễn trong Google Drive của bạn.
+        </div>
+      </div>
+
+      <!-- Files Grid -->
+      <div class="files-grid" id="filesGrid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VIEW 3: DANH SÁCH KHAI BÁO (DECLARATIONS VIEW)
+         ========================================================= -->
+    <section class="dashboard-hero" id="declarationsView" style="display: none;">
+      <div class="dashboard-welcome">
+        <div class="welcome-text">
+          <h1>Hồ Sơ &amp; Danh Sách Khai Báo 📋</h1>
+          <p>Xem toàn bộ thông tin và ảnh chân dung mọi người đã gửi qua trang biểu mẫu trực tuyến.</p>
+        </div>
+        <div class="toolbar-actions">
+          <button id="refreshDeclBtn" class="btn btn-primary">
+            <i class="fa-solid fa-arrows-rotate" id="refreshDeclIcon"></i> Tải Lại Danh Sách
+          </button>
+          <button type="button" id="exportDeclExcelBtnTop" class="btn btn-secondary" style="color: #107c41; border-color: #107c41; font-weight: 600;">
+            <i class="fa-solid fa-file-excel"></i> Xuất Excel
+          </button>
+          <a href="https://docs.google.com/spreadsheets" target="_blank" rel="noopener" class="btn btn-secondary">
+            <i class="fa-solid fa-table"></i> Mở Google Sheet
+          </a>
+          <a href="form.html" target="_blank" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Mở Trang Form
+          </a>
+        </div>
+      </div>
+
+      <!-- Declarations Toolbar -->
+      <div class="dashboard-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1;">
+          <div class="search-private-box" style="max-width: 320px; min-width: 240px;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchDeclInput" placeholder="Tìm kiếm họ tên, mã số, SĐT..." />
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px; background: var(--bg-card); padding: 6px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <i class="fa-solid fa-arrow-down-a-z" style="color: var(--primary); font-size: 0.95rem;"></i>
+            <label for="sortDeclSelect" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; margin: 0;">Sắp xếp:</label>
+            <select id="sortDeclSelect" style="border: none; background: transparent; color: var(--text-main); font-size: 0.88rem; cursor: pointer; outline: none; font-weight: 600;">
+              <option value="name-asc" selected>Tên A → Z (Tiếng Việt)</option>
+              <option value="name-desc">Tên Z → A</option>
+              <option value="fullname-asc">Họ tên A → Z</option>
+              <option value="time-desc">Thời gian: Mới nhất</option>
+              <option value="time-asc">Thời gian: Cũ nhất</option>
+            </select>
+          </div>
+
+          <button type="button" id="exportDeclExcelBtn" class="btn btn-secondary" style="color: #107c41; border-color: #107c41; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;">
+            <i class="fa-solid fa-file-excel" style="font-size: 1.05rem;"></i> Xuất Excel
+          </button>
+        </div>
+        <div style="font-size: 0.95rem; color: var(--text-muted); white-space: nowrap;">
+          Tổng số hồ sơ: <strong id="totalDeclCount" style="color: var(--primary);">0</strong> người đã khai báo
+        </div>
+      </div>
+
+      <!-- Declarations Table Wrapper -->
+      <div class="declarations-table-wrapper">
+        <table class="declarations-table" id="declarationsTable">
+          <thead>
+            <tr>
+              <th style="width: 50px;">STT</th>
+              <th style="width: 80px;">Ảnh chân dung</th>
+              <th id="thSortFullName" style="cursor: pointer; user-select: none;" title="Bấm để đổi sắp xếp A → Z hoặc Z → A">
+                Họ và tên <i class="fa-solid fa-arrow-down-a-z" id="iconSortFullName" style="color: var(--primary); font-size: 0.8rem; margin-left: 4px;"></i>
+              </th>
+              <th>Mã số</th>
+              <th>Số điện thoại</th>
+              <th id="thSortTime" style="cursor: pointer; user-select: none;" title="Bấm để đổi sắp xếp Thời gian mới/cũ">
+                Thời gian gửi <i class="fa-solid fa-sort" id="iconSortTime" style="color: var(--text-muted); font-size: 0.8rem; margin-left: 4px;"></i>
+              </th>
+              <th>Ghi chú</th>
+              <th style="text-align: right;">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="declarationsTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VIEW 4: GOOGLE LỊCH (CALENDAR VIEW)
+         ========================================================= -->
+    <section class="dashboard-hero" id="calendarView" style="display: none;">
+      <div class="dashboard-welcome">
+        <div class="welcome-text">
+          <h1>Google Lịch &amp; Công Việc 📅</h1>
+          <p>Theo dõi lịch biểu, các cuộc họp và danh sách việc cần làm được đồng bộ từ Google Calendar.</p>
+        </div>
+        <div class="toolbar-actions">
+          <button id="openAddEventBtn" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Thêm Sự Kiện / Việc Cần Làm
+          </button>
+          <a href="https://calendar.google.com" target="_blank" rel="noopener" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Mở Google Calendar
+          </a>
+          <button id="openCalendarConfigBtn" class="btn btn-secondary" title="Đổi email hoặc Calendar ID nhúng">
+            <i class="fa-solid fa-gear"></i> Cài Đặt Lịch
+          </button>
+        </div>
+      </div>
+
+      <!-- Calendar Layout Grid -->
+      <div class="calendar-layout-grid">
+        <!-- Left: Agenda Cards List -->
+        <div class="calendar-agenda-pane">
+          <div class="agenda-pane-header">
+            <h3 class="agenda-pane-title">
+              <i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Việc Cần Làm Sắp Tới
+            </h3>
+            <span style="font-size: 0.82rem; color: var(--text-muted);" id="agendaCountText">Đang tải...</span>
+          </div>
+
+          <div class="agenda-cards-list" id="agendaCardsList">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Right: Interactive Google Calendar Embed -->
+        <div class="calendar-embed-pane">
+          <div class="calendar-embed-header">
+            <div>
+              <strong style="color: var(--text-main); font-size: 1rem;">
+                <i class="fa-brands fa-google" style="color: #4285f4;"></i> Lịch Google Trực Quan
+              </strong>
+              <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 2px;">
+                Múi giờ: GMT+7 (Hà Nội, TP.HCM)
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <a href="https://calendar.google.com" target="_blank" rel="noopener" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem;">
+                <i class="fa-regular fa-calendar-plus"></i> Tạo trên Google
+              </a>
+            </div>
+          </div>
+          <iframe id="googleCalendarIframe" class="calendar-embed-iframe" src="" frameborder="0" scrolling="no"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         VIEW 5: MẬT KHẨU & TÀI KHOẢN (PASSWORD VAULT)
+         ========================================================= -->
+    <section class="dashboard-hero" id="passwordsView" style="display: none;">
+      <!-- COMPACT ACTION TOOLBAR -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+        <div class="toolbar-actions" style="flex-wrap: wrap; gap: 6px;">
+          <button id="openAddPwdBtn" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.84rem;">
+            <i class="fa-solid fa-plus"></i> Thêm Tài Khoản
+          </button>
+          <button type="button" id="openManageCatBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.84rem;" title="Thêm mới, sửa hoặc xóa danh mục mật khẩu">
+            <i class="fa-solid fa-tags"></i> Quản Lý Danh Mục
+          </button>
+          <button id="syncPwdCloudBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.84rem; color: #107c41; border-color: #107c41; font-weight: 600;" title="Đồng bộ danh sách mật khẩu lên Google Drive / Sheets cá nhân">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Đồng Bộ Drive
+          </button>
+          <button id="pullPwdCloudBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.84rem; color: #2563eb; border-color: #2563eb; font-weight: 600;" title="Tải danh sách mật khẩu từ Google Sheets về">
+            <i class="fa-solid fa-rotate"></i> Tải Từ Drive
+          </button>
+          <button id="exportPwdExcelBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.84rem; color: #107c41; border-color: #107c41; font-weight: 600;">
+            <i class="fa-solid fa-file-excel"></i> Xuất Excel
+          </button>
+          <button id="exportPwdJsonBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.84rem;" title="Sao lưu toàn bộ két mật khẩu dạng file JSON">
+            <i class="fa-solid fa-download"></i> Sao Lưu
+          </button>
+          <button id="importPwdJsonBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.84rem;" title="Phục hồi dữ liệu từ file JSON">
+            <i class="fa-solid fa-upload"></i> Khôi Phục
+          </button>
+          <input type="file" id="importPwdJsonInput" accept=".json" style="display: none;" />
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="dash-stats-grid">
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: var(--primary); background: var(--primary-light);"><i class="fa-solid fa-vault"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statTotalPwds">0</h4>
+            <span>Tổng tài khoản lưu trữ</span>
+          </div>
+        </div>
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: #059669; background: rgba(16, 185, 129, 0.15);"><i class="fa-solid fa-building-columns"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statBankPwds">0</h4>
+            <span>Ngân hàng &amp; Ví tiền</span>
+          </div>
+        </div>
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: #3b82f6; background: rgba(59, 130, 246, 0.15);"><i class="fa-solid fa-comments"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statSocialPwds">0</h4>
+            <span>Mạng xã hội &amp; Chat</span>
+          </div>
+        </div>
+        <div class="dash-stat-item">
+          <div class="dash-stat-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.15);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <div class="dash-stat-info">
+            <h4 id="statExpiringPwds">0</h4>
+            <span>Cần đổi MK (&gt;6 tháng)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBAR -->
+      <div class="dashboard-toolbar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1;">
+          <div class="search-private-box" style="max-width: 260px; min-width: 180px; padding: 4px 10px; font-size: 0.82rem;">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="searchPwdInput" placeholder="Tìm kiếm tài khoản..." style="font-size: 0.82rem;" />
+          </div>
+
+          <!-- Filter by Owner -->
+          <div style="display: flex; align-items: center; gap: 5px; background: var(--bg-card); padding: 4px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <i class="fa-solid fa-user" style="color: var(--primary); font-size: 0.82rem;"></i>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Chủ:</span>
+            <select id="filterPwdOwnerSelect" style="border: none; background: transparent; color: var(--text-main); font-size: 0.82rem; cursor: pointer; outline: none; font-weight: 600;">
+              <option value="all">Tất cả</option>
+            </select>
+          </div>
+
+          <!-- Filter by Category -->
+          <div style="display: flex; align-items: center; gap: 5px; background: var(--bg-card); padding: 4px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <i class="fa-solid fa-layer-group" style="color: var(--primary); font-size: 0.82rem;"></i>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Mục:</span>
+            <select id="filterPwdCatSelect" style="border: none; background: transparent; color: var(--text-main); font-size: 0.82rem; cursor: pointer; outline: none; font-weight: 600;">
+              <option value="all">Tất cả danh mục</option>
+            </select>
+          </div>
+
+          <!-- Filter by Rotation Status -->
+          <div style="display: flex; align-items: center; gap: 5px; background: var(--bg-card); padding: 4px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary); font-size: 0.82rem;"></i>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Chu kỳ:</span>
+            <select id="filterPwdStatusSelect" style="border: none; background: transparent; color: var(--text-main); font-size: 0.82rem; cursor: pointer; outline: none; font-weight: 600;">
+              <option value="all">Tất cả</option>
+              <option value="expired">⚠️ Quá 6 tháng</option>
+              <option value="expiring">⏳ Sắp đến hạn</option>
+              <option value="safe">✅ An toàn</option>
+            </select>
+          </div>
+
+          <!-- Sort -->
+          <div style="display: flex; align-items: center; gap: 5px; background: var(--bg-card); padding: 4px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+            <i class="fa-solid fa-arrow-down-a-z" style="color: var(--primary); font-size: 0.82rem;"></i>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Xếp:</span>
+            <select id="sortPwdSelect" style="border: none; background: transparent; color: var(--text-main); font-size: 0.82rem; cursor: pointer; outline: none; font-weight: 600;">
+              <option value="updated-desc">Mới cập nhật</option>
+              <option value="owner-asc">Chủ TK: A → Z</option>
+              <option value="service-asc">Dịch vụ: A → Z</option>
+              <option value="expiry-asc">Hạn: Cần đổi trước</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 0.82rem; color: var(--text-muted); white-space: nowrap;">
+            Hiển thị: <strong id="pwdFilteredCount" style="color: var(--primary);">0</strong>
+          </div>
+          <div style="display: flex; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 2px; gap: 2px;">
+            <button type="button" id="btnPwdViewList" class="btn btn-sm btn-secondary" style="padding: 3px 8px; border: none; font-size: 0.78rem; background: var(--primary); color: #fff;" title="Dạng 1 hàng ngang gọn gàng (Mặc định)">
+              <i class="fa-solid fa-list"></i> Dòng
+            </button>
+            <button type="button" id="btnPwdViewGrid" class="btn btn-sm btn-secondary" style="padding: 3px 8px; border: none; font-size: 0.78rem; background: transparent; color: var(--text-muted);" title="Dạng thẻ khối lớn">
+              <i class="fa-solid fa-table-cells-large"></i> Thẻ
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password Cards / List Container -->
+      <div class="pwd-vault-list" id="pwdCardsGrid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL THÊM GHI CHÚ MỚI -->
+  <div class="article-modal" id="addNoteModal" aria-hidden="true">
+    <div class="modal-backdrop" id="addNoteBackdrop"></div>
+    <div class="modal-container" style="max-width: 580px;">
+      <button class="modal-close-btn" id="closeAddNoteBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 20px;">
+          <i class="fa-solid fa-pen-to-square"></i> Tạo Ghi Chú Riêng Tư
+        </h2>
+        <form id="newNoteForm">
+          <div class="modal-form-group">
+            <label for="noteTitleInput">Tiêu đề ghi chú</label>
+            <input type="text" id="noteTitleInput" placeholder="Ví dụ: Kế hoạch tuần tới..." required />
+          </div>
+
+          <div class="modal-form-group">
+            <label for="noteCategorySelect">Phân loại danh mục</label>
+            <select id="noteCategorySelect">
+              <option value="diary">Nhật ký cá nhân</option>
+              <option value="idea">Ý tưởng mật / Dự án mới</option>
+              <option value="account">Tài khoản / Mật khẩu / Server</option>
+              <option value="work">Công việc / To-do list</option>
+            </select>
+          </div>
+
+          <div class="modal-form-group">
+            <label for="noteContentInput">Nội dung ghi chú</label>
+            <textarea id="noteContentInput" placeholder="Nhập nội dung bảo mật của bạn..." required></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" id="cancelAddNoteBtn">Hủy</button>
+            <button type="submit" class="btn btn-primary" id="saveNoteSubmitBtn">Lưu Ghi Chú</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CẤU HÌNH GOOGLE DRIVE / SHEETS -->
+  <div class="article-modal" id="cloudConfigModal" aria-hidden="true">
+    <div class="modal-backdrop" id="cloudConfigBackdrop"></div>
+    <div class="modal-container" style="max-width: 620px;">
+      <button class="modal-close-btn" id="closeCloudConfigBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px;">
+          <i class="fa-brands fa-google-drive" style="color: #34a853;"></i> Kết Nối Google Sheets / Drive
+        </h2>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+          Lưu trữ toàn bộ ghi chú và tệp tải lên trực tiếp vào Google Drive cá nhân của bạn (Miễn phí 100%).
+        </p>
+
+        <ol class="cloud-steps-list">
+          <li>Tạo 1 file Google Sheets mới tại <a href="https://sheets.new" target="_blank" rel="noopener" style="color:var(--primary); text-decoration:underline;">sheets.new</a>.</li>
+          <li>Bấm <strong>Tiện ích mở rộng (Extensions) &gt; Apps Script</strong>.</li>
+          <li>Copy toàn bộ mã trong file <code>google-apps-script.js</code> (có sẵn trong dự án) dán vào.</li>
+          <li>Bấm <strong>Triển khai (Deploy) &gt; Quản lý bản triển khai mới</strong>, chọn loại <strong>Ứng dụng web (Web app)</strong>, quyền truy cập: <strong>Bất kỳ ai (Anyone)</strong>.</li>
+          <li>Copy đường link <code>.../exec</code> nhận được và dán vào ô bên dưới:</li>
+        </ol>
+
+        <form id="cloudConfigForm">
+          <div class="modal-form-group">
+            <label for="gdriveApiUrlInput">Đường link Google Apps Script Web App (URL)</label>
+            <input type="url" id="gdriveApiUrlInput" placeholder="https://script.google.com/macros/s/.../exec" required />
+          </div>
+
+          <div id="cloudFeedback" style="font-size: 0.88rem; margin: 12px 0;"></div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" id="disconnectCloudBtn" style="color: var(--danger); display: none;">
+              <i class="fa-solid fa-trash-can"></i> Ngắt Kết Nối
+            </button>
+            <div style="display: flex; gap: 10px; margin-left: auto;">
+              <button type="button" class="btn btn-secondary" id="cancelCloudConfigBtn">Đóng</button>
+              <button type="submit" class="btn btn-primary" id="saveCloudBtn">
+                <i class="fa-solid fa-plug"></i> Kiểm Tra &amp; Lưu
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL ĐỔI MẬT KHẨU -->
+  <div class="article-modal" id="changePassModal" aria-hidden="true">
+    <div class="modal-backdrop" id="changePassBackdrop"></div>
+    <div class="modal-container" style="max-width: 480px;">
+      <button class="modal-close-btn" id="closeChangePassBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 20px;">
+          <i class="fa-solid fa-key"></i> Đổi Mật Khẩu Đăng Nhập
+        </h2>
+        <form id="changePassForm">
+          <div class="modal-form-group">
+            <label for="newPassInput">Mật khẩu mới</label>
+            <input type="password" id="newPassInput" placeholder="Nhập mật khẩu mới (tối thiểu 4 ký tự)..." required />
+          </div>
+          <div class="modal-form-group">
+            <label for="confirmPassInput">Xác nhận mật khẩu mới</label>
+            <input type="password" id="confirmPassInput" placeholder="Nhập lại mật khẩu mới..." required />
+          </div>
+          <div id="passChangeFeedback" style="font-size: 0.88rem; margin-top: 10px;"></div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" id="cancelChangePassBtn">Hủy</button>
+            <button type="submit" class="btn btn-primary">Cập Nhật Mật Khẩu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM SỰ KIỆN LÊN GOOGLE LỊCH -->
+  <div class="article-modal" id="addEventModal" aria-hidden="true">
+    <div class="modal-backdrop" id="addEventBackdrop"></div>
+    <div class="modal-container" style="max-width: 540px;">
+      <button class="modal-close-btn" id="closeAddEventBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 18px;">
+          <i class="fa-regular fa-calendar-plus" style="color: var(--primary);"></i> Thêm Việc Cần Làm Lên Lịch
+        </h2>
+        <form id="addEventForm">
+          <div class="modal-form-group">
+            <label for="eventTitleInput">Tiêu đề sự kiện / Tên công việc</label>
+            <input type="text" id="eventTitleInput" placeholder="Ví dụ: Họp kỹ thuật IT Petrolimex..." required />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="modal-form-group">
+              <label for="eventStartInput">Bắt đầu lúc</label>
+              <input type="datetime-local" id="eventStartInput" required />
+            </div>
+            <div class="modal-form-group">
+              <label for="eventEndInput">Kết thúc lúc</label>
+              <input type="datetime-local" id="eventEndInput" required />
+            </div>
+          </div>
+
+          <div class="modal-form-group">
+            <label for="eventCategorySelect">Phân loại tính chất</label>
+            <select id="eventCategorySelect">
+              <option value="work">Công việc IT Petrolimex</option>
+              <option value="meeting">Họp trực tuyến / Google Meet</option>
+              <option value="urgent">Việc quan trọng / Khẩn cấp</option>
+              <option value="personal">Cá nhân / Đời sống</option>
+            </select>
+          </div>
+
+          <div class="modal-form-group">
+            <label for="eventLocationInput">Địa điểm hoặc Link Google Meet</label>
+            <input type="text" id="eventLocationInput" placeholder="Ví dụ: Phòng họp tầng 3 hoặc meet.google.com/..." />
+          </div>
+
+          <div class="modal-form-group">
+            <label for="eventDescInput">Mô tả / Nội dung công việc</label>
+            <textarea id="eventDescInput" placeholder="Chi tiết nội dung cần xử lý..." style="min-height: 80px;"></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" id="cancelAddEventBtn">Hủy</button>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-brands fa-google"></i> Lưu &amp; Mở Lịch Google
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CẤU HÌNH GOOGLE CALENDAR -->
+  <div class="article-modal" id="calendarConfigModal" aria-hidden="true">
+    <div class="modal-backdrop" id="calendarConfigBackdrop"></div>
+    <div class="modal-container" style="max-width: 520px;">
+      <button class="modal-close-btn" id="closeCalendarConfigBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px;">
+          <i class="fa-regular fa-calendar-days" style="color: #4285f4;"></i> Cài Đặt Google Lịch Nhúng
+        </h2>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+          Nhập địa chỉ Email Google của bạn để khung lịch tự động hiển thị lịch trình cá nhân.
+        </p>
+
+        <form id="calendarConfigForm">
+          <div class="modal-form-group">
+            <label for="calendarEmailInput">Địa chỉ Email Google / Calendar ID:</label>
+            <input type="text" id="calendarEmailInput" placeholder="Ví dụ: cuongtrinh1012@gmail.com" required />
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-muted);">
+            Lưu ý: Bạn cần đăng nhập đúng tài khoản Google trên trình duyệt này để xem được các lịch riêng tư.
+          </p>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" id="cancelCalendarConfigBtn">Đóng</button>
+            <button type="submit" class="btn btn-primary">Lưu &amp; Tải Lịch</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM / SỬA MẬT KHẨU TÀI KHOẢN NGƯỜI THÂN -->
+  <div class="article-modal" id="pwdModal" aria-hidden="true">
+    <div class="modal-backdrop" id="pwdModalBackdrop"></div>
+    <div class="modal-container" style="max-width: 620px;">
+      <button class="modal-close-btn" id="closePwdModalBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 8px;" id="pwdModalTitle">
+          <i class="fa-solid fa-key" style="color: var(--primary);"></i> Thêm Tài Khoản Mật Khẩu
+        </h2>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 20px;">
+          Lưu trữ thông tin đăng nhập, mật khẩu, mã PIN/OTP cho bản thân hoặc người thân để tra cứu nhanh chóng khi cần.
+        </p>
+
+        <form id="pwdForm">
+          <input type="hidden" id="pwdEditId" value="" />
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="modal-form-group">
+              <label for="pwdOwnerInput">Chủ tài khoản / Người sở hữu <span style="color: var(--danger);">*</span></label>
+              <input type="text" id="pwdOwnerInput" list="pwdOwnerSuggestions" placeholder="Ví dụ: Bản thân, Bố, Mẹ, Bà nội..." required />
+              <datalist id="pwdOwnerSuggestions">
+                <option value="Bản thân (Tôi)"></option>
+                <option value="Bố"></option>
+                <option value="Mẹ"></option>
+                <option value="Vợ"></option>
+                <option value="Chồng"></option>
+                <option value="Con"></option>
+                <option value="Bà nội"></option>
+                <option value="Ông nội"></option>
+                <option value="Bà ngoại"></option>
+                <option value="Ông ngoại"></option>
+              </datalist>
+            </div>
+
+            <div class="modal-form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label for="pwdCategorySelect" style="margin-bottom: 0;">Phân loại danh mục</label>
+                <button type="button" id="btnOpenCatFromModal" class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.76rem; border-color: var(--primary); color: var(--primary);" title="Thêm hoặc xóa danh mục">
+                  <i class="fa-solid fa-tags"></i> Thêm / Bớt
+                </button>
+              </div>
+              <select id="pwdCategorySelect">
+                <!-- Rendered dynamically by JS -->
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-form-group">
+            <label for="pwdServiceInput">Tên Dịch Vụ / Ứng Dụng / Ngân Hàng <span style="color: var(--danger);">*</span></label>
+            <input type="text" id="pwdServiceInput" list="pwdServiceSuggestions" placeholder="Ví dụ: Vietcombank Digibank, Zalo, VNeID, BIDV..." required />
+            <datalist id="pwdServiceSuggestions">
+              <option value="Vietcombank Digibank"></option>
+              <option value="BIDV SmartBanking"></option>
+              <option value="VietinBank iPay"></option>
+              <option value="Agribank E-Mobile"></option>
+              <option value="Techcombank"></option>
+              <option value="MB Bank"></option>
+              <option value="MoMo"></option>
+              <option value="Zalo"></option>
+              <option value="Facebook"></option>
+              <option value="VNeID (Định danh điện tử)"></option>
+              <option value="VssID (Bảo hiểm xã hội)"></option>
+              <option value="Gmail Google"></option>
+              <option value="iCloud Apple ID"></option>
+            </datalist>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="modal-form-group">
+              <label for="pwdUsernameInput">Tên Đăng Nhập / SĐT / STK <span style="color: var(--danger);">*</span></label>
+              <input type="text" id="pwdUsernameInput" placeholder="SĐT hoặc Username đăng nhập" required />
+            </div>
+
+            <div class="modal-form-group">
+              <label for="pwdPinInput">Mã PIN / Smart OTP / Mã phụ</label>
+              <input type="text" id="pwdPinInput" placeholder="Ví dụ: PIN 6 số: 123456" />
+            </div>
+          </div>
+
+          <div class="modal-form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="pwdPasswordInput" style="margin-bottom: 0;">Mật Khẩu Hiện Tại <span style="color: var(--danger);">*</span></label>
+              <button type="button" id="btnGenPassword" class="btn btn-secondary" style="padding: 3px 10px; font-size: 0.8rem;">
+                <i class="fa-solid fa-dice"></i> Tạo MK Ngẫu Nhiên
+              </button>
+            </div>
+            <div style="position: relative;">
+              <input type="text" id="pwdPasswordInput" placeholder="Nhập mật khẩu" required style="padding-right: 42px; font-family: var(--font-mono);" />
+              <button type="button" id="togglePwdInputVisibility" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px;">
+                <i class="fa-regular fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="modal-form-group">
+              <label for="pwdRotationSelect">Chu kỳ đổi mật khẩu</label>
+              <select id="pwdRotationSelect">
+                <option value="6" selected>6 tháng (Khuyên dùng cho Ngân hàng)</option>
+                <option value="3">3 tháng (Bảo mật cao)</option>
+                <option value="12">12 tháng (1 năm)</option>
+                <option value="0">Không bắt buộc đổi định kỳ</option>
+              </select>
+            </div>
+
+            <div class="modal-form-group">
+              <label for="pwdLastChangedInput">Ngày đổi mật khẩu gần nhất</label>
+              <input type="date" id="pwdLastChangedInput" required />
+            </div>
+          </div>
+
+          <!-- Notice when modifying password -->
+          <div id="pwdChangeNoticeBox" style="display: none; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px;">
+            <div style="font-size: 0.85rem; color: var(--text-main); font-weight: 600; margin-bottom: 4px;">
+              <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i> Tự động ghi lại lịch sử mật khẩu cũ
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+              Mật khẩu cũ sẽ được lưu tự động vào <strong>Lịch sử</strong> để xem lại bất cứ khi nào.
+            </div>
+            <input type="text" id="pwdChangeReasonInput" placeholder="Lý do đổi (ví dụ: Đổi định kỳ 6 tháng ngân hàng)..." style="font-size: 0.85rem; padding: 8px 12px;" />
+          </div>
+
+          <div class="modal-form-group">
+            <label for="pwdNoteInput">Ghi chú thêm (SIM nhận OTP, số CMND/CCCD, máy đang giữ...)</label>
+            <textarea id="pwdNoteInput" placeholder="Ví dụ: SIM Viettel chính chủ nhận OTP lắp ở máy Nokia của Bố..." style="min-height: 70px;"></textarea>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+            <button type="button" class="btn btn-secondary" id="cancelPwdModalBtn">Hủy</button>
+            <button type="submit" class="btn btn-primary" id="savePwdSubmitBtn">Lưu Tài Khoản</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LỊCH SỬ MẬT KHẨU -->
+  <div class="article-modal" id="pwdHistoryModal" aria-hidden="true">
+    <div class="modal-backdrop" id="pwdHistoryBackdrop"></div>
+    <div class="modal-container" style="max-width: 580px;">
+      <button class="modal-close-btn" id="closePwdHistoryBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main);" id="pwdHistoryTitle">
+            <i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i> Lịch Sử Mật Khẩu
+          </h2>
+        </div>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 20px;" id="pwdHistorySubtitle">
+          Danh sách các mật khẩu đã từng sử dụng trước đây kèm mốc thời gian.
+        </p>
+
+        <!-- Current Password Box -->
+        <div style="background: var(--bg-surface); border: 2px solid var(--primary); border-radius: var(--radius-md); padding: 14px; margin-bottom: 20px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
+            <i class="fa-solid fa-circle-check"></i> Mật khẩu đang sử dụng hiện tại
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span id="pwdHistoryCurrentVal" style="font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; color: var(--text-main); word-break: break-all;"></span>
+            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnToggleHistoryCurrent" title="Hiện / Ẩn"><i class="fa-regular fa-eye"></i></button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnCopyHistoryCurrent" title="Sao chép"><i class="fa-regular fa-copy"></i> Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 12px;">
+          Các mật khẩu đã dùng trong quá khứ:
+        </h4>
+
+        <div class="pwd-history-timeline" id="pwdHistoryList">
+          <!-- Rendered by JS -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+          <button type="button" class="btn btn-secondary" id="closePwdHistoryBtn2">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL QUẢN LÝ DANH MỤC MẬT KHẨU -->
+  <div class="article-modal" id="pwdCategoriesModal" aria-hidden="true">
+    <div class="modal-backdrop" id="pwdCategoriesBackdrop"></div>
+    <div class="modal-container" style="max-width: 540px;">
+      <button class="modal-close-btn" id="closePwdCategoriesBtn">&times;</button>
+      <div class="modal-body" style="padding: 32px;">
+        <h2 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 8px;">
+          <i class="fa-solid fa-tags" style="color: var(--primary);"></i> Quản Lý Danh Mục Mật Khẩu
+        </h2>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 20px;">
+          Thêm danh mục mới hoặc xóa bớt danh mục để dễ dàng phân loại và lọc tài khoản theo nhu cầu của bạn.
+        </p>
+
+        <!-- Form thêm / sửa danh mục -->
+        <form id="addCategoryForm" style="background: var(--bg-surface); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); margin-bottom: 20px;">
+          <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main); margin-bottom: 10px;" id="catFormTitle">
+            <i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> Thêm danh mục mới:
+          </div>
+          <input type="hidden" id="editCatIdInput" value="" />
+          <div style="display: grid; grid-template-columns: 1fr 140px; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="newCatNameInput" placeholder="Tên danh mục (vd: Game Steam, Công việc...)" required style="font-size: 0.88rem;" />
+            <select id="newCatIconSelect" style="font-size: 0.88rem; cursor: pointer;">
+              <option value="fa-solid fa-tag">🏷️ Mặc định</option>
+              <option value="fa-solid fa-building-columns">🏛️ Ngân hàng</option>
+              <option value="fa-solid fa-wallet">👛 Ví tiền</option>
+              <option value="fa-solid fa-comments">💬 Mạng XH</option>
+              <option value="fa-solid fa-shield-halved">🛡️ Dịch vụ công</option>
+              <option value="fa-solid fa-envelope">✉️ Email</option>
+              <option value="fa-solid fa-briefcase">💼 Công việc</option>
+              <option value="fa-solid fa-cart-shopping">🛒 Mua sắm</option>
+              <option value="fa-solid fa-gamepad">🎮 Game</option>
+              <option value="fa-solid fa-wifi">📶 WiFi</option>
+              <option value="fa-solid fa-server">🖥️ Server</option>
+              <option value="fa-solid fa-heart">❤️ Y tế / Sức khỏe</option>
+              <option value="fa-solid fa-film">🎬 Giải trí / Phim</option>
+              <option value="fa-solid fa-key">🔑 Khác</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="submit" id="btnSubmitCat" class="btn btn-primary btn-sm" style="flex: 1; justify-content: center;">
+              <i class="fa-solid fa-plus"></i> Thêm Vào Danh Mục
+            </button>
+            <button type="button" id="btnCancelEditCat" class="btn btn-secondary btn-sm" style="display: none; justify-content: center;">
+              Hủy Sửa
+            </button>
+          </div>
+        </form>
+
+        <!-- Danh sách danh mục hiện có -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="font-size: 0.92rem; font-weight: 700; color: var(--text-main); margin: 0;">
+            Danh mục hiện tại (<span id="catCountText">0</span>):
+          </h4>
+        </div>
+        <div id="categoriesListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; padding-right: 4px;">
+          <!-- Rendered by JS -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 24px;">
+          <button type="button" class="btn btn-secondary" id="closePwdCategoriesBtn2">Xong</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastNotification" class="toast-notification"></div>
+
+  <!-- PRIVATE APP SCRIPT -->
+  <script>
+    // Theme sync
+    const savedTheme = localStorage.getItem("devlog-theme") || "light";
+    document.documentElement.setAttribute("data-theme", savedTheme);
+
+    const themeToggle = document.getElementById("themeToggle");
+    themeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme");
+      const nextTheme = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", nextTheme);
+      localStorage.setItem("devlog-theme", nextTheme);
+    });
+
+    // Logout
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      if (confirm("Bạn có chắc chắn muốn đăng xuất khỏi khu vực riêng tư?")) {
+        DevLogAuth.logout();
+      }
+    });
+
+    // ==========================================
+    // TAB SWITCHING (HEADER DROPDOWN MENU)
+    // ==========================================
+    const portalNavDropdown = document.getElementById("portalNavDropdown");
+    const portalNavTrigger = document.getElementById("portalNavTrigger");
+    const portalNavMenu = document.getElementById("portalNavMenu");
+    const activeNavLabel = document.getElementById("activeNavLabel");
+
+    const navItemNotes = document.getElementById("navItemNotes");
+    const navItemPasswords = document.getElementById("navItemPasswords");
+    const navItemDeclarations = document.getElementById("navItemDeclarations");
+    const navItemFiles = document.getElementById("navItemFiles");
+    const navItemCalendar = document.getElementById("navItemCalendar");
+
+    const notesView = document.getElementById("notesView");
+    const declarationsView = document.getElementById("declarationsView");
+    const filesView = document.getElementById("filesView");
+    const calendarView = document.getElementById("calendarView");
+    const passwordsView = document.getElementById("passwordsView");
+
+    let currentTabKey = "notes";
+
+    const tabConfig = {
+      notes: {
+        navItem: navItemNotes,
+        view: notesView,
+        labelHtml: '<i class="fa-solid fa-book-bookmark" style="color: var(--primary);"></i> Ghi Chú &amp; Nhật Ký',
+        onActivate: () => {}
+      },
+      passwords: {
+        navItem: navItemPasswords,
+        view: passwordsView,
+        labelHtml: () => `<i class="fa-solid fa-vault" style="color: #ec4899;"></i> Mật Khẩu (${typeof familyPasswords !== "undefined" ? familyPasswords.length : 0})`,
+        onActivate: () => { if (typeof renderPasswords === "function") renderPasswords(); }
+      },
+      declarations: {
+        navItem: navItemDeclarations,
+        view: declarationsView,
+        labelHtml: () => `<i class="fa-solid fa-id-card" style="color: #3b82f6;"></i> Danh Sách Khai Báo (${typeof declarationsList !== "undefined" ? declarationsList.length : 0})`,
+        onActivate: () => { if (typeof loadDeclarations === "function") loadDeclarations(); }
+      },
+      files: {
+        navItem: navItemFiles,
+        view: filesView,
+        labelHtml: () => `<i class="fa-brands fa-google-drive" style="color: #10b981;"></i> Tệp &amp; Tài Liệu Drive (${typeof files !== "undefined" ? files.length : 0})`,
+        onActivate: () => {}
+      },
+      calendar: {
+        navItem: navItemCalendar,
+        view: calendarView,
+        labelHtml: '<i class="fa-regular fa-calendar-days" style="color: #f59e0b;"></i> Google Lịch',
+        onActivate: () => { if (typeof initCalendarView === "function") initCalendarView(); }
+      }
+    };
+
+    function refreshNavLabel() {
+      const cfg = tabConfig[currentTabKey];
+      if (cfg && activeNavLabel) {
+        activeNavLabel.innerHTML = typeof cfg.labelHtml === "function" ? cfg.labelHtml() : cfg.labelHtml;
+      }
+    }
+
+    function switchTab(target, fallbackView) {
+      let tabKey = "notes";
+      if (typeof target === "string") {
+        tabKey = target.toLowerCase();
+      } else if (target === navItemPasswords || target === passwordsView || fallbackView === passwordsView) {
+        tabKey = "passwords";
+      } else if (target === navItemDeclarations || target === declarationsView || fallbackView === declarationsView) {
+        tabKey = "declarations";
+      } else if (target === navItemFiles || target === filesView || fallbackView === filesView) {
+        tabKey = "files";
+      } else if (target === navItemCalendar || target === calendarView || fallbackView === calendarView) {
+        tabKey = "calendar";
+      } else {
+        tabKey = "notes";
+      }
+
+      const cfg = tabConfig[tabKey] || tabConfig.notes;
+      currentTabKey = tabKey;
+
+      [notesView, declarationsView, filesView, calendarView, passwordsView].forEach(v => v && (v.style.display = "none"));
+      [navItemNotes, navItemPasswords, navItemDeclarations, navItemFiles, navItemCalendar].forEach(i => i && i.classList.remove("active"));
+
+      if (cfg.view) cfg.view.style.display = "block";
+      if (cfg.navItem) cfg.navItem.classList.add("active");
+
+      if (activeNavLabel) {
+        activeNavLabel.innerHTML = typeof cfg.labelHtml === "function" ? cfg.labelHtml() : cfg.labelHtml;
+      }
+
+      if (portalNavDropdown) portalNavDropdown.classList.remove("open");
+      if (cfg.onActivate) cfg.onActivate();
+    }
+
+    // Dropdown toggle click
+    if (portalNavTrigger) {
+      portalNavTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (portalNavDropdown) portalNavDropdown.classList.toggle("open");
+      });
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener("click", (e) => {
+      if (portalNavDropdown && !portalNavDropdown.contains(e.target)) {
+        portalNavDropdown.classList.remove("open");
+      }
+    });
+
+    if (navItemNotes) navItemNotes.addEventListener("click", () => switchTab("notes"));
+    if (navItemPasswords) navItemPasswords.addEventListener("click", () => switchTab("passwords"));
+    if (navItemDeclarations) navItemDeclarations.addEventListener("click", () => switchTab("declarations"));
+    if (navItemFiles) navItemFiles.addEventListener("click", () => switchTab("files"));
+    if (navItemCalendar) navItemCalendar.addEventListener("click", () => switchTab("calendar"));
+
+    // Check initial tab from URL params or hash
+    const initialUrlTab = new URLSearchParams(window.location.search).get("tab") || (window.location.hash ? window.location.hash.replace("#", "") : "");
+    if (initialUrlTab && tabConfig[initialUrlTab.toLowerCase()]) {
+      switchTab(initialUrlTab.toLowerCase());
+    }
+
+    // ==========================================
+    // NOTES STATE & RENDERING
+    // ==========================================
+    let currentTag = "all";
+    let filterQuery = "";
+    let notes = DevLogAuth.getPrivateNotes();
+
+    const notesGrid = document.getElementById("privateNotesGrid");
+    const statTotalNotes = document.getElementById("statTotalNotes");
+    const statDiaryNotes = document.getElementById("statDiaryNotes");
+    const statIdeaNotes = document.getElementById("statIdeaNotes");
+    const statAccountNotes = document.getElementById("statAccountNotes");
+    const searchPrivateInput = document.getElementById("searchPrivateInput");
+
+    // Cloud Status Elements
+    const cloudStatusBadge = document.getElementById("cloudStatusBadge");
+    const syncCloudBtn = document.getElementById("syncCloudBtn");
+    const syncIcon = document.getElementById("syncIcon");
+
+    function updateCloudBadge() {
+      if (!cloudStatusBadge) return;
+      if (DevLogAuth.isCloudConnected()) {
+        cloudStatusBadge.className = "cloud-status-badge connected";
+        cloudStatusBadge.title = "Google Drive: Đã kết nối (Bấm để mở cài đặt)";
+        cloudStatusBadge.innerHTML = '<i class="fa-solid fa-cloud-check"></i>';
+        const discBtn = document.getElementById("disconnectCloudBtn");
+        if (discBtn) discBtn.style.display = "inline-flex";
+      } else {
+        cloudStatusBadge.className = "cloud-status-badge disconnected";
+        cloudStatusBadge.title = "Google Drive: Chưa kết nối (Bấm để kết nối)";
+        cloudStatusBadge.innerHTML = '<i class="fa-solid fa-cloud-slash"></i>';
+        const discBtn = document.getElementById("disconnectCloudBtn");
+        if (discBtn) discBtn.style.display = "none";
+      }
+    }
+
+    function updateStats() {
+      statTotalNotes.textContent = notes.length;
+      statDiaryNotes.textContent = notes.filter(n => n.category === "diary").length;
+      statIdeaNotes.textContent = notes.filter(n => n.category === "idea").length;
+      statAccountNotes.textContent = notes.filter(n => n.category === "account").length;
+    }
+
+    function renderNotes() {
+      updateStats();
+      const filtered = notes.filter(n => {
+        const matchTag = currentTag === "all" || n.category === currentTag;
+        const matchSearch = n.title.toLowerCase().includes(filterQuery.toLowerCase()) ||
+                            n.content.toLowerCase().includes(filterQuery.toLowerCase());
+        return matchTag && matchSearch;
+      });
+
+      if (filtered.length === 0) {
+        notesGrid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--text-muted);">
+            <i class="fa-regular fa-folder-open" style="font-size: 2.5rem; margin-bottom: 12px; display: block;"></i>
+            <h3>Chưa có ghi chú nào</h3>
+            <p>Bấm nút "Tạo Ghi Chú Mới" để lưu thông tin bí mật đầu tiên của bạn.</p>
+          </div>
+        `;
+        return;
+      }
+
+      notesGrid.innerHTML = filtered.map(note => `
+        <div class="private-note-card">
+          <div class="note-header">
+            <span class="note-tag tag-${note.category}">${note.categoryName}</span>
+            <div class="note-actions">
+              <button class="btn-icon-sm" onclick="deleteNote(${note.id})" title="Xóa ghi chú này">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+          <h3 class="note-title">${escapeHtml(note.title)}</h3>
+          <div class="note-body">${escapeHtml(note.content)}</div>
+          <div class="note-footer">
+            <span><i class="fa-regular fa-calendar"></i> ${note.date}</span>
+            <span style="color: var(--success);"><i class="fa-solid fa-lock"></i> Đã bảo mật</span>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Category filter
+    document.querySelectorAll(".dashboard-toolbar .filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".dashboard-toolbar .filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentTag = btn.getAttribute("data-tag");
+        renderNotes();
+      });
+    });
+
+    // Search filter
+    searchPrivateInput.addEventListener("input", (e) => {
+      filterQuery = e.target.value.trim();
+      renderNotes();
+    });
+
+    // Delete note
+    window.deleteNote = async function(id) {
+      if (confirm("Bạn có chắc chắn muốn xóa ghi chú này không? Thao tác này không thể hoàn tác.")) {
+        notes = notes.filter(n => n.id !== id);
+        DevLogAuth.savePrivateNotes(notes);
+        renderNotes();
+
+        if (DevLogAuth.isCloudConnected()) {
+          DevLogAuth.deleteNoteFromCloud(id);
+        }
+      }
+    };
+
+    // Add note modal
+    const addNoteModal = document.getElementById("addNoteModal");
+    const openAddNoteBtn = document.getElementById("openAddNoteBtn");
+    const closeAddNoteBtn = document.getElementById("closeAddNoteBtn");
+    const cancelAddNoteBtn = document.getElementById("cancelAddNoteBtn");
+    const addNoteBackdrop = document.getElementById("addNoteBackdrop");
+    const newNoteForm = document.getElementById("newNoteForm");
+
+    function openModal() { addNoteModal.classList.add("active"); }
+    function closeModal() { addNoteModal.classList.remove("active"); newNoteForm.reset(); }
+
+    openAddNoteBtn.addEventListener("click", openModal);
+    closeAddNoteBtn.addEventListener("click", closeModal);
+    cancelAddNoteBtn.addEventListener("click", closeModal);
+    addNoteBackdrop.addEventListener("click", closeModal);
+
+    newNoteForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const title = document.getElementById("noteTitleInput").value.trim();
+      const category = document.getElementById("noteCategorySelect").value;
+      const content = document.getElementById("noteContentInput").value.trim();
+
+      const categoryMap = {
+        diary: "Nhật ký",
+        idea: "Ý tưởng mật",
+        account: "Tài khoản",
+        work: "Công việc"
+      };
+
+      const now = new Date();
+      const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+
+      const newNote = {
+        id: Date.now(),
+        title,
+        category,
+        categoryName: categoryMap[category] || "Khác",
+        date: dateStr,
+        content
+      };
+
+      notes.unshift(newNote);
+      DevLogAuth.savePrivateNotes(notes);
+      closeModal();
+      renderNotes();
+
+      if (DevLogAuth.isCloudConnected()) {
+        syncIcon.classList.add("sync-spinner");
+        await DevLogAuth.addNoteToCloud(newNote);
+        syncIcon.classList.remove("sync-spinner");
+      }
+    });
+
+    // Cloud Sync Button
+    syncCloudBtn.addEventListener("click", async () => {
+      if (!DevLogAuth.isCloudConnected()) {
+        openCloudConfig();
+        return;
+      }
+
+      syncIcon.classList.add("sync-spinner");
+      const res = await DevLogAuth.fetchAllFromCloud();
+      syncIcon.classList.remove("sync-spinner");
+
+      if (res.success) {
+        notes = res.notes;
+        files = res.files;
+        renderNotes();
+        renderFiles();
+        alert(`Đã đồng bộ thành công ${notes.length} ghi chú và ${files.length} tệp từ Google Drive!`);
+      } else {
+        alert(res.message);
+      }
+    });
+
+    // ==========================================
+    // FILES MANAGEMENT & UPLOAD LOGIC
+    // ==========================================
+    let files = DevLogAuth.getUploadedFiles();
+    let fileFilterQuery = "";
+
+    const filesGrid = document.getElementById("filesGrid");
+    const fileCountBadge = document.getElementById("fileCountBadge");
+    const fileInput = document.getElementById("fileInput");
+    const uploadDropzone = document.getElementById("uploadDropzone");
+    const triggerUploadBtn = document.getElementById("triggerUploadBtn");
+    const uploadProgressContainer = document.getElementById("uploadProgressContainer");
+    const uploadProgressText = document.getElementById("uploadProgressText");
+    const searchFilesInput = document.getElementById("searchFilesInput");
+    const refreshFilesBtn = document.getElementById("refreshFilesBtn");
+    const refreshFilesIcon = document.getElementById("refreshFilesIcon");
+
+    function getFileIconClass(mimeType, filename) {
+      const lowerName = filename.toLowerCase();
+      if (mimeType.startsWith("image/") || lowerName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
+        return { icon: "fa-regular fa-image", class: "file-icon-image" };
+      }
+      if (mimeType === "application/pdf" || lowerName.endsWith(".pdf")) {
+        return { icon: "fa-regular fa-file-pdf", class: "file-icon-pdf" };
+      }
+      if (lowerName.match(/\.(doc|docx|txt|md)$/)) {
+        return { icon: "fa-regular fa-file-word", class: "file-icon-doc" };
+      }
+      if (lowerName.match(/\.(xls|xlsx|csv)$/)) {
+        return { icon: "fa-regular fa-file-excel", class: "file-icon-doc" };
+      }
+      if (lowerName.match(/\.(zip|rar|7z|tar|gz)$/)) {
+        return { icon: "fa-regular fa-file-zipper", class: "file-icon-zip" };
+      }
+      return { icon: "fa-regular fa-file", class: "file-icon-other" };
+    }
+
+    function renderFiles() {
+      fileCountBadge.textContent = files.length;
+      if (typeof refreshNavLabel === "function") refreshNavLabel();
+      const filtered = files.filter(f => f.name.toLowerCase().includes(fileFilterQuery.toLowerCase()));
+
+      if (filtered.length === 0) {
+        filesGrid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: var(--text-muted);">
+            <i class="fa-regular fa-folder-open" style="font-size: 2.5rem; margin-bottom: 12px; display: block;"></i>
+            <h3>Chưa có tệp nào được tải lên</h3>
+            <p>Kéo thả tệp vào khung bên trên để lưu trữ trực tiếp vào Google Drive.</p>
+          </div>
+        `;
+        return;
+      }
+
+      filesGrid.innerHTML = filtered.map(file => {
+        const iconInfo = getFileIconClass(file.mimeType || "", file.name);
+        return `
+          <div class="file-card">
+            <div class="file-card-top">
+              <div class="file-icon-box ${iconInfo.class}">
+                <i class="${iconInfo.icon}"></i>
+              </div>
+              <div class="file-info">
+                <div class="file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+                <div class="file-meta">${file.sizeFormatted || "Đang cập nhật"} • ${file.date || "Hôm nay"}</div>
+              </div>
+            </div>
+            <div class="file-card-actions">
+              <a href="${file.url}" target="_blank" rel="noopener" class="btn-file-open">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Mở trên Drive
+              </a>
+              <div class="file-action-buttons">
+                <button class="btn-icon-sm" onclick="copyFileLink('${file.url}')" title="Sao chép đường link tệp">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+                <button class="btn-icon-sm" onclick="deleteFile('${file.id}')" title="Xóa tệp này">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    searchFilesInput.addEventListener("input", (e) => {
+      fileFilterQuery = e.target.value.trim();
+      renderFiles();
+    });
+
+    // Copy file link helper
+    window.copyFileLink = function(url) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Đã sao chép link tệp vào bộ nhớ tạm!");
+      });
+    };
+
+    // Delete file
+    window.deleteFile = async function(fileId) {
+      if (confirm("Bạn có chắc chắn muốn xóa tệp này khỏi Google Drive?")) {
+        files = files.filter(f => f.id !== fileId);
+        DevLogAuth.saveUploadedFiles(files);
+        renderFiles();
+        if (DevLogAuth.isCloudConnected()) {
+          await DevLogAuth.deleteFileFromDrive(fileId);
+        }
+      }
+    };
+
+    // Dropzone Events
+    uploadDropzone.addEventListener("click", (e) => {
+      if (e.target !== fileInput) {
+        fileInput.click();
+      }
+    });
+
+    triggerUploadBtn.addEventListener("click", () => {
+      fileInput.click();
+    });
+
+    ["dragenter", "dragover"].forEach(eventName => {
+      uploadDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadDropzone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach(eventName => {
+      uploadDropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadDropzone.classList.remove("dragover");
+      });
+    });
+
+    uploadDropzone.addEventListener("drop", (e) => {
+      const dt = e.dataTransfer;
+      const droppedFiles = dt.files;
+      if (droppedFiles && droppedFiles.length > 0) {
+        handleFilesUpload(droppedFiles);
+      }
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFilesUpload(e.target.files);
+      }
+    });
+
+    // Global Clipboard Paste (Ctrl + V) support for images
+    window.addEventListener("paste", (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+      if (activeTag === "input" || activeTag === "textarea") return;
+
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      let pastedImageFile = null;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          pastedImageFile = items[i].getAsFile();
+          break;
+        }
+      }
+
+      if (pastedImageFile) {
+        e.preventDefault();
+        switchTab("files");
+        const formattedName = `screenshot_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
+        const fileWithProperName = new File([pastedImageFile], formattedName, { type: pastedImageFile.type || "image/png" });
+        
+        const confirmUpload = confirm(`📋 Bạn vừa dán 1 hình ảnh từ Clipboard.\n\nBạn có muốn tải ảnh này lên Google Drive ngay không?`);
+        if (confirmUpload) {
+          handleFilesUpload([fileWithProperName]);
+        }
+      }
+    });
+
+    // Process file uploading
+    async function handleFilesUpload(fileList) {
+      if (!DevLogAuth.isCloudConnected()) {
+        alert("Vui lòng bấm 'Cài Đặt Drive' và kết nối URL Google Apps Script trước khi tải tệp lên!");
+        openCloudConfig();
+        return;
+      }
+
+      uploadProgressContainer.style.display = "block";
+
+      for (let i = 0; i < fileList.length; i++) {
+        const currentFile = fileList[i];
+        uploadProgressText.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang tải lên (${i + 1}/${fileList.length}): <strong>${escapeHtml(currentFile.name)}</strong>...`;
+
+        const result = await DevLogAuth.uploadFileToDrive(currentFile);
+        if (result.success) {
+          files = DevLogAuth.getUploadedFiles();
+          renderFiles();
+        } else {
+          alert(`Lỗi khi tải tệp ${currentFile.name}: ${result.message}`);
+        }
+      }
+
+      uploadProgressText.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--success);"></i> Hoàn tất tải lên Google Drive!`;
+      setTimeout(() => {
+        uploadProgressContainer.style.display = "none";
+        fileInput.value = "";
+      }, 2500);
+    }
+
+    refreshFilesBtn.addEventListener("click", async () => {
+      if (!DevLogAuth.isCloudConnected()) {
+        openCloudConfig();
+        return;
+      }
+      refreshFilesIcon.classList.add("sync-spinner");
+      const res = await DevLogAuth.fetchAllFromCloud();
+      refreshFilesIcon.classList.remove("sync-spinner");
+      if (res.success) {
+        files = res.files;
+        renderFiles();
+        alert("Đã cập nhật danh sách tệp mới nhất từ Google Drive!");
+      }
+    });
+
+    // ==========================================
+    // CLOUD CONFIG MODAL & ACTIONS
+    // ==========================================
+    const cloudConfigModal = document.getElementById("cloudConfigModal");
+    const openCloudConfigBtn = document.getElementById("openCloudConfigBtn");
+    const closeCloudConfigBtn = document.getElementById("closeCloudConfigBtn");
+    const cancelCloudConfigBtn = document.getElementById("cancelCloudConfigBtn");
+    const cloudConfigBackdrop = document.getElementById("cloudConfigBackdrop");
+    const cloudConfigForm = document.getElementById("cloudConfigForm");
+    const gdriveApiUrlInput = document.getElementById("gdriveApiUrlInput");
+    const cloudFeedback = document.getElementById("cloudFeedback");
+    const disconnectCloudBtn = document.getElementById("disconnectCloudBtn");
+
+    function openCloudConfig() {
+      gdriveApiUrlInput.value = DevLogAuth.getCloudApiUrl();
+      cloudFeedback.textContent = "";
+      updateCloudBadge();
+      cloudConfigModal.classList.add("active");
+    }
+
+    function closeCloudConfig() {
+      cloudConfigModal.classList.remove("active");
+    }
+
+    openCloudConfigBtn.addEventListener("click", openCloudConfig);
+    cloudStatusBadge.addEventListener("click", openCloudConfig);
+    closeCloudConfigBtn.addEventListener("click", closeCloudConfig);
+    cancelCloudConfigBtn.addEventListener("click", closeCloudConfig);
+    cloudConfigBackdrop.addEventListener("click", closeCloudConfig);
+
+    cloudConfigForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = gdriveApiUrlInput.value.trim();
+      if (!url.startsWith("https://script.google.com")) {
+        cloudFeedback.style.color = "var(--danger)";
+        cloudFeedback.textContent = "URL phải bắt đầu bằng https://script.google.com/...";
+        return;
+      }
+
+      cloudFeedback.style.color = "var(--primary)";
+      cloudFeedback.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra kết nối với Google Drive...';
+
+      DevLogAuth.setCloudApiUrl(url);
+      const testRes = await DevLogAuth.fetchAllFromCloud();
+      if (testRes.success) {
+        cloudFeedback.style.color = "var(--success)";
+        cloudFeedback.textContent = "Kết nối thành công! Đã đồng bộ dữ liệu.";
+        notes = testRes.notes;
+        files = testRes.files;
+        renderNotes();
+        renderFiles();
+        updateCloudBadge();
+        setTimeout(closeCloudConfig, 1500);
+      } else {
+        cloudFeedback.style.color = "var(--danger)";
+        cloudFeedback.textContent = testRes.message;
+      }
+    });
+
+    disconnectCloudBtn.addEventListener("click", () => {
+      if (confirm("Bạn có chắc chắn muốn ngắt kết nối Google Drive? (Dữ liệu trên máy sẽ được giữ nguyên)")) {
+        DevLogAuth.setCloudApiUrl("");
+        updateCloudBadge();
+        closeCloudConfig();
+      }
+    });
+
+    // Backup / Export
+    document.getElementById("exportNotesBtn").addEventListener("click", () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ notes, files }, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `devlog_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+
+    // Change Password Modal
+    const changePassModal = document.getElementById("changePassModal");
+    const openChangePassBtn = document.getElementById("openChangePassBtn");
+    const closeChangePassBtn = document.getElementById("closeChangePassBtn");
+    const cancelChangePassBtn = document.getElementById("cancelChangePassBtn");
+    const changePassBackdrop = document.getElementById("changePassBackdrop");
+    const changePassForm = document.getElementById("changePassForm");
+    const passFeedback = document.getElementById("passChangeFeedback");
+
+    openChangePassBtn.addEventListener("click", () => {
+      changePassModal.classList.add("active");
+      passFeedback.textContent = "";
+    });
+
+    function closePassModal() {
+      changePassModal.classList.remove("active");
+      changePassForm.reset();
+      passFeedback.textContent = "";
+    }
+
+    closeChangePassBtn.addEventListener("click", closePassModal);
+    cancelChangePassBtn.addEventListener("click", closePassModal);
+    changePassBackdrop.addEventListener("click", closePassModal);
+
+    changePassForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const newPass = document.getElementById("newPassInput").value;
+      const confirmPass = document.getElementById("confirmPassInput").value;
+
+      if (newPass !== confirmPass) {
+        passFeedback.style.color = "var(--danger)";
+        passFeedback.textContent = "Mật khẩu xác nhận không khớp!";
+        return;
+      }
+
+      const res = DevLogAuth.updatePassword(newPass);
+      if (res.success) {
+        passFeedback.style.color = "var(--success)";
+        passFeedback.textContent = "Đổi mật khẩu thành công!";
+        setTimeout(() => {
+          closePassModal();
+        }, 1200);
+      } else {
+        passFeedback.style.color = "var(--danger)";
+        passFeedback.textContent = res.message;
+      }
+    });
+
+    // ==========================================
+    // DECLARATIONS (HỒ SƠ KHAI BÁO) MANAGEMENT
+    // ==========================================
+    const DECLARATION_API_URL = "https://script.google.com/macros/s/AKfycbwyjbkHSziMEcQzB4kPT1885-BDE4fLRT3VinZTQ1yJQr-eHxETcnIYQ283_XFf7vL5/exec";
+    let declarationsList = [];
+    let declSearchQuery = "";
+    let declSortMode = "name-asc"; // Mặc định sắp xếp Tên A -> Z chuẩn tiếng Việt
+
+    const declarationsTableBody = document.getElementById("declarationsTableBody");
+    const declCountBadge = document.getElementById("declCountBadge");
+    const totalDeclCount = document.getElementById("totalDeclCount");
+    const searchDeclInput = document.getElementById("searchDeclInput");
+    const sortDeclSelect = document.getElementById("sortDeclSelect");
+    const exportDeclExcelBtn = document.getElementById("exportDeclExcelBtn");
+    const exportDeclExcelBtnTop = document.getElementById("exportDeclExcelBtnTop");
+    const refreshDeclBtn = document.getElementById("refreshDeclBtn");
+    const refreshDeclIcon = document.getElementById("refreshDeclIcon");
+    const thSortFullName = document.getElementById("thSortFullName");
+    const thSortTime = document.getElementById("thSortTime");
+    const iconSortFullName = document.getElementById("iconSortFullName");
+    const iconSortTime = document.getElementById("iconSortTime");
+
+    async function loadDeclarations() {
+      if (refreshDeclIcon) refreshDeclIcon.classList.add("sync-spinner");
+      try {
+        const res = await fetch(DECLARATION_API_URL, { cache: "no-store" });
+        const json = await res.json();
+        if (json.status === "online" && Array.isArray(json.data)) {
+          declarationsList = json.data;
+          renderDeclarations();
+        } else if (Array.isArray(json.data)) {
+          declarationsList = json.data;
+          renderDeclarations();
+        }
+      } catch (err) {
+        console.warn("Lỗi tải danh sách hồ sơ:", err);
+      } finally {
+        if (refreshDeclIcon) refreshDeclIcon.classList.remove("sync-spinner");
+      }
+    }
+
+    // Tách tên gọi chính và họ tên đệm để sắp xếp chuẩn danh bạ tiếng Việt (A, Ă, Â, B, C, D, Đ...)
+    function getVietnameseSortKey(fullName) {
+      const parts = (fullName || "").trim().split(/\s+/);
+      if (parts.length === 0 || !parts[0]) return "";
+      const firstName = parts[parts.length - 1]; // Tên chính (An, Bình, Cường...)
+      const rest = parts.slice(0, -1).join(" "); // Họ và tên đệm
+      return `${firstName} ${rest}`;
+    }
+
+    function parseDeclarationTime(item) {
+      if (item && item.time) {
+        const cleaned = String(item.time).replace(/\s*\([^)]*\)$/, "");
+        const t = new Date(cleaned).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      return Number(item && item.id) || 0;
+    }
+
+    function getFilteredAndSortedDeclarations() {
+      const query = declSearchQuery.toLowerCase();
+      let list = declarationsList.filter(d => {
+        return (d.fullName || "").toLowerCase().includes(query) ||
+               (d.codeId || "").toLowerCase().includes(query) ||
+               (d.phone || "").toLowerCase().includes(query) ||
+               (d.note && d.note.toLowerCase().includes(query));
+      });
+
+      list.sort((a, b) => {
+        if (declSortMode === "name-asc") {
+          return getVietnameseSortKey(a.fullName).localeCompare(getVietnameseSortKey(b.fullName), "vi", { sensitivity: "base" });
+        } else if (declSortMode === "name-desc") {
+          return getVietnameseSortKey(b.fullName).localeCompare(getVietnameseSortKey(a.fullName), "vi", { sensitivity: "base" });
+        } else if (declSortMode === "fullname-asc") {
+          return (a.fullName || "").localeCompare(b.fullName || "", "vi", { sensitivity: "base" });
+        } else if (declSortMode === "time-asc") {
+          return parseDeclarationTime(a) - parseDeclarationTime(b);
+        } else {
+          // time-desc (mới nhất trước)
+          return parseDeclarationTime(b) - parseDeclarationTime(a);
+        }
+      });
+
+      return list;
+    }
+
+    function updateSortHeaderIcons() {
+      if (iconSortFullName) {
+        if (declSortMode === "name-asc" || declSortMode === "fullname-asc") {
+          iconSortFullName.className = "fa-solid fa-arrow-down-a-z";
+          iconSortFullName.style.color = "var(--primary)";
+        } else if (declSortMode === "name-desc") {
+          iconSortFullName.className = "fa-solid fa-arrow-down-z-a";
+          iconSortFullName.style.color = "var(--primary)";
+        } else {
+          iconSortFullName.className = "fa-solid fa-sort";
+          iconSortFullName.style.color = "var(--text-muted)";
+        }
+      }
+
+      if (iconSortTime) {
+        if (declSortMode === "time-desc") {
+          iconSortTime.className = "fa-solid fa-arrow-down-wide-short";
+          iconSortTime.style.color = "var(--primary)";
+        } else if (declSortMode === "time-asc") {
+          iconSortTime.className = "fa-solid fa-arrow-up-short-wide";
+          iconSortTime.style.color = "var(--primary)";
+        } else {
+          iconSortTime.className = "fa-solid fa-sort";
+          iconSortTime.style.color = "var(--text-muted)";
+        }
+      }
+    }
+
+    function renderDeclarations() {
+      if (declCountBadge) declCountBadge.textContent = declarationsList.length;
+      if (totalDeclCount) totalDeclCount.textContent = declarationsList.length;
+      if (typeof refreshNavLabel === "function") refreshNavLabel();
+
+      updateSortHeaderIcons();
+
+      const filtered = getFilteredAndSortedDeclarations();
+
+      if (filtered.length === 0) {
+        declarationsTableBody.innerHTML = `
+          <tr>
+            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+              <i class="fa-regular fa-folder-open" style="font-size: 2.2rem; margin-bottom: 10px; display: block;"></i>
+              ${declarationsList.length === 0 ? "Chưa có hồ sơ khai báo nào được ghi nhận trên Google Sheet." : "Không tìm thấy hồ sơ nào phù hợp với từ khóa tìm kiếm."}
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      declarationsTableBody.innerHTML = filtered.map((item, idx) => {
+        let photoHtml = `<span style="color: var(--text-muted); font-size: 0.8rem;">Không có</span>`;
+        if (item.photoUrl && item.photoUrl.startsWith("http")) {
+          let directThumb = item.photoUrl;
+          if (directThumb.includes("drive.google.com/file/d/")) {
+            const fileId = directThumb.split('/d/')[1].split('/')[0];
+            directThumb = `https://lh3.googleusercontent.com/d/${fileId}=w200`;
+          }
+          photoHtml = `
+            <a href="${item.photoUrl}" target="_blank" rel="noopener" title="Bấm để xem ảnh gốc trên Google Drive">
+              <img src="${directThumb}" 
+                   onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';"
+                   class="decl-thumb-img" alt="${escapeHtml(item.fullName)}" />
+            </a>
+          `;
+        }
+
+        return `
+          <tr>
+            <td><strong>#${idx + 1}</strong></td>
+            <td>${photoHtml}</td>
+            <td><strong style="color: var(--text-main); font-size: 1rem;">${escapeHtml(item.fullName)}</strong></td>
+            <td><span class="decl-badge-code">${escapeHtml(item.codeId)}</span></td>
+            <td>
+              <a href="tel:${escapeHtml(item.phone)}" class="decl-phone-link">
+                <i class="fa-solid fa-phone"></i> ${escapeHtml(item.phone)}
+              </a>
+            </td>
+            <td style="font-size: 0.82rem; color: var(--text-muted);">${escapeHtml(item.time)}</td>
+            <td style="font-size: 0.88rem; max-width: 220px;">${escapeHtml(item.note || "—")}</td>
+            <td style="text-align: right; white-space: nowrap;">
+              ${item.photoUrl && item.photoUrl.startsWith("http") 
+                ? `<a href="${item.photoUrl}" target="_blank" rel="noopener" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem; border-color: var(--primary); color: var(--primary);">
+                     <i class="fa-solid fa-arrow-up-right-from-square"></i> Xem Ảnh Drive
+                   </a>`
+                : ''}
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // Xuất file Excel (.xlsx) danh sách hồ sơ hiện tại
+    function exportDeclarationsToExcel() {
+      const dataToExport = getFilteredAndSortedDeclarations();
+      if (dataToExport.length === 0) {
+        alert("Không có hồ sơ nào để xuất Excel.");
+        return;
+      }
+
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      const filename = `Danh_Sach_Khai_Bao_${dateStr}.xlsx`;
+
+      try {
+        if (typeof XLSX !== "undefined") {
+          const wsData = [
+            ["STT", "Họ và tên", "Mã số", "Số điện thoại", "Thời gian gửi", "Link ảnh chân dung", "Ghi chú"]
+          ];
+
+          dataToExport.forEach((item, idx) => {
+            wsData.push([
+              idx + 1,
+              item.fullName || "",
+              item.codeId || "",
+              item.phone || "",
+              item.time || "",
+              item.photoUrl || "",
+              item.note || ""
+            ]);
+          });
+
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+          // Căn chỉnh độ rộng cột tối ưu
+          ws["!cols"] = [
+            { wch: 6 },
+            { wch: 25 },
+            { wch: 15 },
+            { wch: 16 },
+            { wch: 30 },
+            { wch: 55 },
+            { wch: 30 }
+          ];
+
+          XLSX.utils.book_append_sheet(wb, ws, "Danh Sách Khai Báo");
+          XLSX.writeFile(wb, filename);
+        } else {
+          // Fallback: CSV UTF-8 kèm BOM hiển thị tiếng Việt hoàn hảo trên Excel
+          let csv = "\uFEFFSTT,Họ và tên,Mã số,Số điện thoại,Thời gian gửi,Link ảnh chân dung,Ghi chú\n";
+          dataToExport.forEach((item, idx) => {
+            const row = [
+              idx + 1,
+              `"${(item.fullName || "").replace(/"/g, '""')}"`,
+              `"${(item.codeId || "").replace(/"/g, '""')}"`,
+              `"${(item.phone || "").replace(/"/g, '""')}"`,
+              `"${(item.time || "").replace(/"/g, '""')}"`,
+              `"${(item.photoUrl || "").replace(/"/g, '""')}"`,
+              `"${(item.note || "").replace(/"/g, '""')}"`
+            ];
+            csv += row.join(",") + "\n";
+          });
+
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Danh_Sach_Khai_Bao_${dateStr}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+
+        // Phản hồi trực quan trên nút
+        [exportDeclExcelBtn, exportDeclExcelBtnTop].forEach(btn => {
+          if (btn) {
+            const orig = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-check" style="color: #107c41;"></i> Đã xuất (${dataToExport.length})`;
+            setTimeout(() => { btn.innerHTML = orig; }, 2500);
+          }
+        });
+      } catch (err) {
+        console.error("Lỗi xuất Excel:", err);
+        alert("Có lỗi xảy ra khi xuất file Excel: " + err.message);
+      }
+    }
+
+    if (searchDeclInput) {
+      searchDeclInput.addEventListener("input", (e) => {
+        declSearchQuery = e.target.value.trim();
+        renderDeclarations();
+      });
+    }
+
+    if (sortDeclSelect) {
+      sortDeclSelect.addEventListener("change", (e) => {
+        declSortMode = e.target.value;
+        renderDeclarations();
+      });
+    }
+
+    if (thSortFullName) {
+      thSortFullName.addEventListener("click", () => {
+        if (declSortMode === "name-asc") {
+          declSortMode = "name-desc";
+        } else {
+          declSortMode = "name-asc";
+        }
+        if (sortDeclSelect) sortDeclSelect.value = declSortMode;
+        renderDeclarations();
+      });
+    }
+
+    if (thSortTime) {
+      thSortTime.addEventListener("click", () => {
+        if (declSortMode === "time-desc") {
+          declSortMode = "time-asc";
+        } else {
+          declSortMode = "time-desc";
+        }
+        if (sortDeclSelect) sortDeclSelect.value = declSortMode;
+        renderDeclarations();
+      });
+    }
+
+    if (exportDeclExcelBtn) exportDeclExcelBtn.addEventListener("click", exportDeclarationsToExcel);
+    if (exportDeclExcelBtnTop) exportDeclExcelBtnTop.addEventListener("click", exportDeclarationsToExcel);
+    if (refreshDeclBtn) refreshDeclBtn.addEventListener("click", loadDeclarations);
+
+    // ==========================================
+    // GOOGLE CALENDAR & AGENDA MANAGEMENT
+    // ==========================================
+    const CALENDAR_STORAGE_KEY = "devlog_calendar_id";
+    const AGENDA_STORAGE_KEY = "devlog_calendar_agenda";
+
+    const DEFAULT_AGENDA = [
+      {
+        id: 1,
+        title: "Họp giao ban định kỳ IT Petrolimex",
+        time: "08:30 - 09:30, Thứ Hai hàng tuần",
+        category: "meeting",
+        location: "Phòng họp tầng 3 & Google Meet",
+        desc: "Báo cáo tiến độ vận hành hạ tầng và bảo mật thông tin."
+      },
+      {
+        id: 2,
+        title: "Kiểm tra sao lưu hệ thống & máy chủ",
+        time: "14:00 - 15:30, Thứ Sáu",
+        category: "work",
+        location: "Trung tâm dữ liệu Petrolimex",
+        desc: "Xác thực bản sao lưu định kỳ và kiểm tra an ninh mạng."
+      },
+      {
+        id: 3,
+        title: "Duyệt hồ sơ khai báo & hình ảnh mới",
+        time: "Hàng ngày sau giờ làm việc",
+        category: "urgent",
+        location: "Hệ thống Google Sheet & Drive",
+        desc: "Đối chiếu mã số nhân viên và ảnh chân dung mọi người nộp."
+      }
+    ];
+
+    function getStoredAgenda() {
+      const data = localStorage.getItem(AGENDA_STORAGE_KEY);
+      if (!data) {
+        localStorage.setItem(AGENDA_STORAGE_KEY, JSON.stringify(DEFAULT_AGENDA));
+        return DEFAULT_AGENDA;
+      }
+      try { return JSON.parse(data); } catch(e) { return DEFAULT_AGENDA; }
+    }
+
+    function saveStoredAgenda(agenda) {
+      localStorage.setItem(AGENDA_STORAGE_KEY, JSON.stringify(agenda));
+    }
+
+    function getCalendarId() {
+      return localStorage.getItem(CALENDAR_STORAGE_KEY) || "vi.vietnamese#holiday@group.v.calendar.google.com";
+    }
+
+    function setCalendarId(id) {
+      localStorage.setItem(CALENDAR_STORAGE_KEY, id.trim());
+      updateCalendarIframe();
+    }
+
+    const googleCalendarIframe = document.getElementById("googleCalendarIframe");
+    const agendaCardsList = document.getElementById("agendaCardsList");
+    const agendaCountText = document.getElementById("agendaCountText");
+
+    function updateCalendarIframe() {
+      const calId = encodeURIComponent(getCalendarId());
+      const embedUrl = `https://calendar.google.com/calendar/embed?src=${calId}&ctz=Asia%2FHo_Chi_Minh&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&showTz=1&mode=AGENDA`;
+      googleCalendarIframe.src = embedUrl;
+    }
+
+    function renderAgenda() {
+      const agenda = getStoredAgenda();
+      agendaCountText.textContent = `${agenda.length} việc cần làm`;
+
+      if (agenda.length === 0) {
+        agendaCardsList.innerHTML = `
+          <div style="text-align: center; padding: 30px 10px; color: var(--text-muted);">
+            <i class="fa-regular fa-calendar-check" style="font-size: 2rem; margin-bottom: 8px; display: block;"></i>
+            Chưa có công việc nào trong danh sách.
+          </div>
+        `;
+        return;
+      }
+
+      agendaCardsList.innerHTML = agenda.map(item => `
+        <div class="event-card status-${item.category}">
+          <div class="event-time-pill">
+            <i class="fa-regular fa-clock"></i> ${escapeHtml(item.time)}
+          </div>
+          <div class="event-card-title">${escapeHtml(item.title)}</div>
+          <div class="event-card-meta">
+            ${item.location ? `<span><i class="fa-solid fa-location-dot" style="color:var(--primary);"></i> ${escapeHtml(item.location)}</span>` : ''}
+            ${item.desc ? `<span><i class="fa-solid fa-align-left"></i> ${escapeHtml(item.desc)}</span>` : ''}
+          </div>
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button class="btn-icon-sm" onclick="deleteAgendaItem(${item.id})" title="Xóa việc này">
+              <i class="fa-regular fa-trash-can"></i>
+            </button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    window.deleteAgendaItem = function(id) {
+      let agenda = getStoredAgenda();
+      agenda = agenda.filter(a => a.id !== id);
+      saveStoredAgenda(agenda);
+      renderAgenda();
+    };
+
+    function initCalendarView() {
+      renderAgenda();
+      if (!googleCalendarIframe.src || googleCalendarIframe.src === "about:blank") {
+        updateCalendarIframe();
+      }
+    }
+
+    // Modal Add Event
+    const addEventModal = document.getElementById("addEventModal");
+    const openAddEventBtn = document.getElementById("openAddEventBtn");
+    const closeAddEventBtn = document.getElementById("closeAddEventBtn");
+    const cancelAddEventBtn = document.getElementById("cancelAddEventBtn");
+    const addEventBackdrop = document.getElementById("addEventBackdrop");
+    const addEventForm = document.getElementById("addEventForm");
+
+    openAddEventBtn.addEventListener("click", () => {
+      const now = new Date();
+      const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);
+      document.getElementById("eventStartInput").value = now.toISOString().slice(0, 16);
+      document.getElementById("eventEndInput").value = inOneHour.toISOString().slice(0, 16);
+      addEventModal.classList.add("active");
+    });
+
+    function closeEventModal() {
+      addEventModal.classList.remove("active");
+      addEventForm.reset();
+    }
+
+    closeAddEventBtn.addEventListener("click", closeEventModal);
+    cancelAddEventBtn.addEventListener("click", closeEventModal);
+    addEventBackdrop.addEventListener("click", closeEventModal);
+
+    addEventForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = document.getElementById("eventTitleInput").value.trim();
+      const start = document.getElementById("eventStartInput").value;
+      const end = document.getElementById("eventEndInput").value;
+      const category = document.getElementById("eventCategorySelect").value;
+      const location = document.getElementById("eventLocationInput").value.trim();
+      const desc = document.getElementById("eventDescInput").value.trim();
+
+      const formatTimeText = `${start.replace('T', ' ')} đến ${end.replace('T', ' ')}`;
+
+      const newEvent = {
+        id: Date.now(),
+        title,
+        time: formatTimeText,
+        category,
+        location,
+        desc
+      };
+
+      const agenda = getStoredAgenda();
+      agenda.unshift(newEvent);
+      saveStoredAgenda(agenda);
+      renderAgenda();
+      closeEventModal();
+
+      const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(desc)}&location=${encodeURIComponent(location)}`;
+      window.open(gcalUrl, '_blank');
+    });
+
+    // Modal Calendar Config
+    const calendarConfigModal = document.getElementById("calendarConfigModal");
+    const openCalendarConfigBtn = document.getElementById("openCalendarConfigBtn");
+    const closeCalendarConfigBtn = document.getElementById("closeCalendarConfigBtn");
+    const cancelCalendarConfigBtn = document.getElementById("cancelCalendarConfigBtn");
+    const calendarConfigBackdrop = document.getElementById("calendarConfigBackdrop");
+    const calendarConfigForm = document.getElementById("calendarConfigForm");
+    const calendarEmailInput = document.getElementById("calendarEmailInput");
+
+    openCalendarConfigBtn.addEventListener("click", () => {
+      calendarEmailInput.value = getCalendarId();
+      calendarConfigModal.classList.add("active");
+    });
+
+    function closeCalendarModal() {
+      calendarConfigModal.classList.remove("active");
+    }
+
+    closeCalendarConfigBtn.addEventListener("click", closeCalendarModal);
+    cancelCalendarConfigBtn.addEventListener("click", closeCalendarModal);
+    calendarConfigBackdrop.addEventListener("click", closeCalendarModal);
+
+    calendarConfigForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = calendarEmailInput.value.trim();
+      if (id) {
+        setCalendarId(id);
+        closeCalendarModal();
+        alert("Đã cập nhật cấu hình Google Calendar!");
+      }
+    });
+
+    // ==========================================
+    // 6. KÉT MẬT KHẨU & TÀI KHOẢN (PASSWORD VAULT)
+    // ==========================================
+    const FAMILY_PASSWORDS_KEY = "devlog_family_passwords";
+    const PWD_CATEGORIES_KEY = "devlog_password_categories";
+
+    const DEFAULT_PWD_CATEGORIES = [
+      { id: "bank", name: "Ngân hàng & Ví tiền", icon: "fa-solid fa-building-columns" },
+      { id: "social", name: "Mạng xã hội & Chat", icon: "fa-solid fa-comments" },
+      { id: "gov", name: "Dịch vụ công & BHYT", icon: "fa-solid fa-shield-halved" },
+      { id: "email", name: "Email & Tài khoản số", icon: "fa-solid fa-envelope" },
+      { id: "work", name: "Công việc & Server", icon: "fa-solid fa-briefcase" },
+      { id: "shopping", name: "Mua sắm & E-Commerce", icon: "fa-solid fa-cart-shopping" },
+      { id: "other", name: "Khác", icon: "fa-solid fa-key" }
+    ];
+
+    function getPasswordCategories() {
+      const data = localStorage.getItem(PWD_CATEGORIES_KEY);
+      if (!data) {
+        localStorage.setItem(PWD_CATEGORIES_KEY, JSON.stringify(DEFAULT_PWD_CATEGORIES));
+        return DEFAULT_PWD_CATEGORIES;
+      }
+      try {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_PWD_CATEGORIES;
+      } catch (e) {
+        return DEFAULT_PWD_CATEGORIES;
+      }
+    }
+
+    let passwordCategories = getPasswordCategories();
+
+    function savePasswordCategories(cats) {
+      localStorage.setItem(PWD_CATEGORIES_KEY, JSON.stringify(cats));
+      passwordCategories = cats;
+      updateCategoryDropdowns();
+      renderPasswords();
+    }
+
+    const DEFAULT_FAMILY_PASSWORDS = [
+      {
+        id: "pwd_sample_1",
+        owner: "Bố",
+        service: "Vietcombank Digibank",
+        category: "bank",
+        username: "0912345678",
+        password: "BoVCB@2026",
+        pin: "101288",
+        rotationMonths: 6,
+        lastChanged: "2026-03-01",
+        note: "SIM Viettel chính chủ nhận OTP lắp ở máy Nokia của Bố. Thẻ ATM mở ở VCB Ba Đình.",
+        history: [
+          {
+            password: "BoCuongVCB2025",
+            changedAt: "2025-09-01T10:00:00.000Z",
+            reason: "Mật khẩu đợt mở tài khoản ban đầu"
+          }
+        ],
+        createdAt: "2025-09-01T10:00:00.000Z",
+        updatedAt: "2026-03-01T08:30:00.000Z"
+      },
+      {
+        id: "pwd_sample_2",
+        owner: "Mẹ",
+        service: "Zalo",
+        category: "social",
+        username: "0987654321",
+        password: "MeYeuDau#2026",
+        pin: "",
+        rotationMonths: 0,
+        lastChanged: "2026-07-15",
+        note: "Đăng nhập trên điện thoại Samsung của Mẹ và iPad ở phòng khách.",
+        history: [],
+        createdAt: "2026-07-15T14:00:00.000Z",
+        updatedAt: "2026-07-15T14:00:00.000Z"
+      },
+      {
+        id: "pwd_sample_3",
+        owner: "Bà nội",
+        service: "VNeID (Định danh điện tử)",
+        category: "gov",
+        username: "001150001234",
+        password: "BaNoi@1950",
+        pin: "123456",
+        rotationMonths: 12,
+        lastChanged: "2026-08-10",
+        note: "Mã số định danh CCCD của Bà. SIM nhận OTP số của Bố.",
+        history: [],
+        createdAt: "2026-08-10T09:15:00.000Z",
+        updatedAt: "2026-08-10T09:15:00.000Z"
+      },
+      {
+        id: "pwd_sample_4",
+        owner: "Bản thân",
+        service: "GitHub Pro",
+        category: "work",
+        username: "cuongtrinh1012",
+        password: "GitSecurePass#2026",
+        pin: "",
+        rotationMonths: 6,
+        lastChanged: "2026-08-20",
+        note: "Tài khoản lưu trữ source code các dự án cá nhân và công ty.",
+        history: [],
+        createdAt: "2026-08-20T11:00:00.000Z",
+        updatedAt: "2026-08-20T11:00:00.000Z"
+      }
+    ];
+
+    function formatUsername(val) {
+      if (val === undefined || val === null) return "";
+      let s = String(val).trim();
+      // Nếu là số điện thoại hoặc mã định danh 9 chữ số bị mất số 0 đầu (ví dụ: 378126446 -> 0378126446)
+      if (/^[35789]\d{8}$/.test(s)) {
+        s = "0" + s;
+      }
+      return s;
+    }
+
+    function normalizePasswordItem(item) {
+      if (!item) return item;
+      item.username = formatUsername(item.username);
+      if (item.pin !== undefined && item.pin !== null) {
+        item.pin = String(item.pin).trim();
+      }
+      return item;
+    }
+
+    function getFamilyPasswords() {
+      const data = localStorage.getItem(FAMILY_PASSWORDS_KEY);
+      if (!data) {
+        localStorage.setItem(FAMILY_PASSWORDS_KEY, JSON.stringify(DEFAULT_FAMILY_PASSWORDS));
+        return DEFAULT_FAMILY_PASSWORDS.map(normalizePasswordItem);
+      }
+      try {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) ? parsed.map(normalizePasswordItem) : DEFAULT_FAMILY_PASSWORDS.map(normalizePasswordItem);
+      } catch (e) {
+        return DEFAULT_FAMILY_PASSWORDS.map(normalizePasswordItem);
+      }
+    }
+
+    function saveFamilyPasswords(list) {
+      const normalized = (list || []).map(normalizePasswordItem);
+      localStorage.setItem(FAMILY_PASSWORDS_KEY, JSON.stringify(normalized));
+      familyPasswords = normalized;
+      if (pwdCountBadge) pwdCountBadge.textContent = normalized.length;
+    }
+
+    let familyPasswords = getFamilyPasswords();
+    let pwdSearchQuery = "";
+    let pwdOwnerFilter = "all";
+    let pwdCatFilter = "all";
+    let pwdStatusFilter = "all";
+    let pwdSortMode = "updated-desc";
+    let pwdViewMode = localStorage.getItem("devlog_pwd_view_mode") || "list"; // "list" (1 hàng ngang) hoặc "grid" (thẻ)
+
+    let visiblePasswordsMap = {};
+    let visiblePinsMap = {};
+    let originalPasswordForEdit = "";
+
+    // DOM Elements
+    const pwdCardsGrid = document.getElementById("pwdCardsGrid");
+    const pwdCountBadge = document.getElementById("pwdCountBadge");
+    const statTotalPwds = document.getElementById("statTotalPwds");
+    const statBankPwds = document.getElementById("statBankPwds");
+    const statSocialPwds = document.getElementById("statSocialPwds");
+    const statExpiringPwds = document.getElementById("statExpiringPwds");
+    const pwdFilteredCount = document.getElementById("pwdFilteredCount");
+
+    const searchPwdInput = document.getElementById("searchPwdInput");
+    const filterPwdOwnerSelect = document.getElementById("filterPwdOwnerSelect");
+    const filterPwdCatSelect = document.getElementById("filterPwdCatSelect");
+    const filterPwdStatusSelect = document.getElementById("filterPwdStatusSelect");
+    const sortPwdSelect = document.getElementById("sortPwdSelect");
+
+    const btnPwdViewList = document.getElementById("btnPwdViewList");
+    const btnPwdViewGrid = document.getElementById("btnPwdViewGrid");
+
+    const openAddPwdBtn = document.getElementById("openAddPwdBtn");
+    const openManageCatBtn = document.getElementById("openManageCatBtn");
+    const syncPwdCloudBtn = document.getElementById("syncPwdCloudBtn");
+    const pullPwdCloudBtn = document.getElementById("pullPwdCloudBtn");
+    const exportPwdExcelBtn = document.getElementById("exportPwdExcelBtn");
+    const exportPwdJsonBtn = document.getElementById("exportPwdJsonBtn");
+    const importPwdJsonBtn = document.getElementById("importPwdJsonBtn");
+    const importPwdJsonInput = document.getElementById("importPwdJsonInput");
+
+    // Modal elements
+    const pwdModal = document.getElementById("pwdModal");
+    const pwdModalBackdrop = document.getElementById("pwdModalBackdrop");
+    const closePwdModalBtn = document.getElementById("closePwdModalBtn");
+    const cancelPwdModalBtn = document.getElementById("cancelPwdModalBtn");
+    const pwdForm = document.getElementById("pwdForm");
+    const pwdModalTitle = document.getElementById("pwdModalTitle");
+    const pwdEditId = document.getElementById("pwdEditId");
+    const pwdOwnerInput = document.getElementById("pwdOwnerInput");
+    const pwdCategorySelect = document.getElementById("pwdCategorySelect");
+    const btnOpenCatFromModal = document.getElementById("btnOpenCatFromModal");
+    const pwdServiceInput = document.getElementById("pwdServiceInput");
+    const pwdUsernameInput = document.getElementById("pwdUsernameInput");
+    const pwdPinInput = document.getElementById("pwdPinInput");
+    const pwdPasswordInput = document.getElementById("pwdPasswordInput");
+    const togglePwdInputVisibility = document.getElementById("togglePwdInputVisibility");
+    const btnGenPassword = document.getElementById("btnGenPassword");
+    const pwdRotationSelect = document.getElementById("pwdRotationSelect");
+    const pwdLastChangedInput = document.getElementById("pwdLastChangedInput");
+    const pwdChangeNoticeBox = document.getElementById("pwdChangeNoticeBox");
+    const pwdChangeReasonInput = document.getElementById("pwdChangeReasonInput");
+    const pwdNoteInput = document.getElementById("pwdNoteInput");
+
+    // History Modal elements
+    const pwdHistoryModal = document.getElementById("pwdHistoryModal");
+    const pwdHistoryBackdrop = document.getElementById("pwdHistoryBackdrop");
+    const closePwdHistoryBtn = document.getElementById("closePwdHistoryBtn");
+    const closePwdHistoryBtn2 = document.getElementById("closePwdHistoryBtn2");
+    const pwdHistoryTitle = document.getElementById("pwdHistoryTitle");
+    const pwdHistorySubtitle = document.getElementById("pwdHistorySubtitle");
+    const pwdHistoryCurrentVal = document.getElementById("pwdHistoryCurrentVal");
+    const btnToggleHistoryCurrent = document.getElementById("btnToggleHistoryCurrent");
+    const btnCopyHistoryCurrent = document.getElementById("btnCopyHistoryCurrent");
+    const pwdHistoryList = document.getElementById("pwdHistoryList");
+
+    // Category Manager Modal elements
+    const pwdCategoriesModal = document.getElementById("pwdCategoriesModal");
+    const pwdCategoriesBackdrop = document.getElementById("pwdCategoriesBackdrop");
+    const closePwdCategoriesBtn = document.getElementById("closePwdCategoriesBtn");
+    const closePwdCategoriesBtn2 = document.getElementById("closePwdCategoriesBtn2");
+    const addCategoryForm = document.getElementById("addCategoryForm");
+    const newCatNameInput = document.getElementById("newCatNameInput");
+    const newCatIconSelect = document.getElementById("newCatIconSelect");
+    const categoriesListContainer = document.getElementById("categoriesListContainer");
+    const catCountText = document.getElementById("catCountText");
+    const catFormTitle = document.getElementById("catFormTitle");
+    const editCatIdInput = document.getElementById("editCatIdInput");
+    const btnSubmitCat = document.getElementById("btnSubmitCat");
+    const btnCancelEditCat = document.getElementById("btnCancelEditCat");
+
+    let currentHistoryActiveItem = null;
+    let isHistoryCurrentVisible = false;
+
+    // Toast Notification helper
+    function showToast(message) {
+      const toast = document.getElementById("toastNotification");
+      if (!toast) return;
+      toast.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #10b981;"></i> ${message}`;
+      toast.classList.add("show");
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2200);
+    }
+
+    window.copyToClipboard = function(text, label) {
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(`Đã sao chép ${label || 'nội dung'}!`);
+        }).catch(() => {
+          fallbackCopyText(text, label);
+        });
+      } else {
+        fallbackCopyText(text, label);
+      }
+    };
+
+    function fallbackCopyText(text, label) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand("copy");
+        showToast(`Đã sao chép ${label || 'nội dung'}!`);
+      } catch (e) {
+        alert("Không thể tự động sao chép. Vui lòng sao chép thủ công: " + text);
+      }
+      document.body.removeChild(ta);
+    }
+
+    function generateStrongPassword() {
+      const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+      const lower = "abcdefghijkmnopqrstuvwxyz";
+      const digits = "23456789";
+      const special = "@#$%!&";
+      const all = upper + lower + digits + special;
+      let pwd = "";
+      pwd += upper[Math.floor(Math.random() * upper.length)];
+      pwd += lower[Math.floor(Math.random() * lower.length)];
+      pwd += digits[Math.floor(Math.random() * digits.length)];
+      pwd += special[Math.floor(Math.random() * special.length)];
+      for (let i = 4; i < 12; i++) {
+        pwd += all[Math.floor(Math.random() * all.length)];
+      }
+      return pwd.split("").sort(() => 0.5 - Math.random()).join("");
+    }
+
+    function getPwdRotationStatus(item) {
+      const rotationMonths = Number(item.rotationMonths) || 0;
+      if (rotationMonths === 0) {
+        return {
+          status: "none",
+          text: "Không bắt buộc đổi định kỳ",
+          badgeClass: "none",
+          icon: "fa-solid fa-infinity",
+          daysLeft: 9999
+        };
+      }
+
+      const lastDate = item.lastChanged ? new Date(item.lastChanged) : new Date(item.createdAt || Date.now());
+      const nextDue = new Date(lastDate);
+      nextDue.setMonth(nextDue.getMonth() + rotationMonths);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      nextDue.setHours(0, 0, 0, 0);
+
+      const diffMs = nextDue.getTime() - today.getTime();
+      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+      if (daysLeft < 0) {
+        const overdue = Math.abs(daysLeft);
+        return {
+          status: "expired",
+          text: `Đã quá hạn ${overdue} ngày (Chu kỳ ${rotationMonths} tháng) - Cần đổi ngay!`,
+          badgeClass: "danger",
+          icon: "fa-solid fa-triangle-exclamation",
+          daysLeft: daysLeft
+        };
+      } else if (daysLeft <= 30) {
+        return {
+          status: "expiring",
+          text: `Sắp đến hạn đổi (Còn ${daysLeft} ngày là đủ ${rotationMonths} tháng)`,
+          badgeClass: "warning",
+          icon: "fa-solid fa-clock",
+          daysLeft: daysLeft
+        };
+      } else {
+        return {
+          status: "safe",
+          text: `Mới đổi gần đây (Còn ${daysLeft} ngày tới chu kỳ ${rotationMonths} tháng)`,
+          badgeClass: "ok",
+          icon: "fa-solid fa-circle-check",
+          daysLeft: daysLeft
+        };
+      }
+    }
+
+    function getCategoryInfo(catId) {
+      const cat = passwordCategories.find(c => c.id === catId);
+      if (cat) return cat;
+      return { id: catId || "other", name: catId || "Khác", icon: "fa-solid fa-tag" };
+    }
+
+    function getServiceVisual(service, category) {
+      const catInfo = getCategoryInfo(category);
+      const s = (service || "").toLowerCase();
+      if (s.includes("vietcombank") || s.includes("vcb")) {
+        return { icon: "fa-solid fa-building-columns", class: "bank", label: "Vietcombank" };
+      }
+      if (s.includes("bidv") || s.includes("vietin") || s.includes("agribank") || s.includes("techcom") || s.includes("mb") || s.includes("tpbank") || s.includes("bank")) {
+        return { icon: "fa-solid fa-building-columns", class: "bank", label: "Ngân hàng" };
+      }
+      if (s.includes("momo") || s.includes("zalopay") || s.includes("viettel money") || s.includes("vnpt pay")) {
+        return { icon: "fa-solid fa-wallet", class: "bank", label: "Ví điện tử" };
+      }
+      if (s.includes("zalo")) {
+        return { icon: "fa-solid fa-comment-dots", class: "social", label: "Zalo" };
+      }
+      if (s.includes("facebook") || s.includes("fb") || s.includes("messenger")) {
+        return { icon: "fa-brands fa-facebook", class: "social", label: "Facebook" };
+      }
+      if (s.includes("vneid") || s.includes("vssid") || s.includes("định danh") || s.includes("bảo hiểm")) {
+        return { icon: "fa-solid fa-shield-halved", class: "gov", label: "Dịch vụ công" };
+      }
+      if (s.includes("google") || s.includes("gmail") || s.includes("icloud") || s.includes("apple")) {
+        return { icon: "fa-solid fa-envelope", class: "email", label: "Email & Cloud" };
+      }
+      if (category === "bank") return { icon: "fa-solid fa-building-columns", class: "bank", label: catInfo.name };
+      if (category === "social") return { icon: "fa-solid fa-comments", class: "social", label: catInfo.name };
+      if (category === "gov") return { icon: "fa-solid fa-shield-halved", class: "gov", label: catInfo.name };
+      if (category === "email") return { icon: "fa-solid fa-envelope", class: "email", label: catInfo.name };
+      if (category === "work") return { icon: "fa-solid fa-briefcase", class: "email", label: catInfo.name };
+      if (category === "shopping") return { icon: "fa-solid fa-cart-shopping", class: "bank", label: catInfo.name };
+
+      return { icon: catInfo.icon || "fa-solid fa-key", class: "other", label: catInfo.name };
+    }
+
+    function updateCategoryDropdowns() {
+      // 1. Filter dropdown in toolbar
+      if (filterPwdCatSelect) {
+        const currentVal = filterPwdCatSelect.value;
+        let html = `<option value="all">Tất cả danh mục (${familyPasswords.length})</option>`;
+        passwordCategories.forEach(cat => {
+          const count = familyPasswords.filter(p => p.category === cat.id).length;
+          html += `<option value="${escapeHtml(cat.id)}">${escapeHtml(cat.name)} (${count})</option>`;
+        });
+        filterPwdCatSelect.innerHTML = html;
+        if (passwordCategories.some(c => c.id === currentVal) || currentVal === "all") {
+          filterPwdCatSelect.value = currentVal;
+        } else {
+          filterPwdCatSelect.value = "all";
+        }
+      }
+
+      // 2. Select dropdown in Add/Edit form modal
+      if (pwdCategorySelect) {
+        const currentVal = pwdCategorySelect.value;
+        let html = "";
+        passwordCategories.forEach(cat => {
+          html += `<option value="${escapeHtml(cat.id)}">${escapeHtml(cat.name)}</option>`;
+        });
+        pwdCategorySelect.innerHTML = html;
+        if (passwordCategories.some(c => c.id === currentVal)) {
+          pwdCategorySelect.value = currentVal;
+        } else if (passwordCategories.length > 0) {
+          pwdCategorySelect.value = passwordCategories[0].id;
+        }
+      }
+
+      // 3. Category Manager Modal list
+      if (categoriesListContainer) {
+        if (catCountText) catCountText.textContent = passwordCategories.length;
+        categoriesListContainer.innerHTML = passwordCategories.map(cat => {
+          const count = familyPasswords.filter(p => p.category === cat.id).length;
+          const isDefaultOther = cat.id === "other";
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: var(--radius-sm); background: var(--bg-hover); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                  <i class="${cat.icon || 'fa-solid fa-tag'}"></i>
+                </div>
+                <div>
+                  <strong style="color: var(--text-main); font-size: 0.9rem;">${escapeHtml(cat.name)}</strong>
+                  <div style="font-size: 0.76rem; color: var(--text-muted);">${count} tài khoản đang dùng</div>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button type="button" class="btn btn-sm" style="padding: 4px 10px; font-size: 0.78rem; color: var(--primary); background: var(--primary-light); border: 1px solid rgba(59, 130, 246, 0.3);" onclick="editCategory('${cat.id}')" title="Sửa tên hoặc icon danh mục này">
+                  <i class="fa-solid fa-pen"></i> Sửa
+                </button>
+                ${!isDefaultOther ? `
+                  <button type="button" class="btn btn-sm" style="padding: 4px 10px; font-size: 0.78rem; color: #dc2626; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);" onclick="deleteCategory('${cat.id}')" title="Xóa danh mục này">
+                    <i class="fa-solid fa-trash"></i> Xóa
+                  </button>
+                ` : `
+                  <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin-left: 4px;">Mặc định</span>
+                `}
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    window.editCategory = function(catId) {
+      const cat = passwordCategories.find(c => c.id === catId);
+      if (!cat) return;
+      if (editCatIdInput) editCatIdInput.value = cat.id;
+      if (newCatNameInput) newCatNameInput.value = cat.name;
+      if (newCatIconSelect) newCatIconSelect.value = cat.icon || "fa-solid fa-tag";
+      if (catFormTitle) catFormTitle.innerHTML = `<i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Chỉnh sửa danh mục "${escapeHtml(cat.name)}":`;
+      if (btnSubmitCat) btnSubmitCat.innerHTML = `<i class="fa-solid fa-check"></i> Lưu Cập Nhật`;
+      if (btnCancelEditCat) btnCancelEditCat.style.display = "inline-flex";
+      if (newCatNameInput) newCatNameInput.focus();
+    };
+
+    function resetCategoryForm() {
+      if (editCatIdInput) editCatIdInput.value = "";
+      if (newCatNameInput) newCatNameInput.value = "";
+      if (newCatIconSelect) newCatIconSelect.value = "fa-solid fa-tag";
+      if (catFormTitle) catFormTitle.innerHTML = `<i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> Thêm danh mục mới:`;
+      if (btnSubmitCat) btnSubmitCat.innerHTML = `<i class="fa-solid fa-plus"></i> Thêm Vào Danh Mục`;
+      if (btnCancelEditCat) btnCancelEditCat.style.display = "none";
+    }
+
+    if (btnCancelEditCat) {
+      btnCancelEditCat.addEventListener("click", resetCategoryForm);
+    }
+
+    window.deleteCategory = function(catId) {
+      if (catId === "other") {
+        alert("Danh mục 'Khác' là danh mục mặc định của hệ thống, không thể xóa.");
+        return;
+      }
+      const targetCat = passwordCategories.find(c => c.id === catId);
+      if (!targetCat) return;
+
+      const usedCount = familyPasswords.filter(p => p.category === catId).length;
+      if (usedCount > 0) {
+        if (!confirm(`Có ${usedCount} tài khoản đang thuộc danh mục "${targetCat.name}".\n\nBạn có muốn chuyển tất cả tài khoản này sang danh mục "Khác" và xóa danh mục "${targetCat.name}" không?`)) {
+          return;
+        }
+        familyPasswords.forEach(p => {
+          if (p.category === catId) p.category = "other";
+        });
+        saveFamilyPasswords(familyPasswords);
+      } else {
+        if (!confirm(`Bạn có chắc chắn muốn xóa danh mục "${targetCat.name}"?`)) {
+          return;
+        }
+      }
+
+      passwordCategories = passwordCategories.filter(c => c.id !== catId);
+      savePasswordCategories(passwordCategories);
+      showToast(`Đã xóa danh mục "${targetCat.name}".`);
+      resetCategoryForm();
+    };
+
+    function openCategoriesModal() {
+      resetCategoryForm();
+      updateCategoryDropdowns();
+      if (pwdCategoriesModal) pwdCategoriesModal.classList.add("active");
+    }
+
+    function closeCategoriesModal() {
+      resetCategoryForm();
+      if (pwdCategoriesModal) pwdCategoriesModal.classList.remove("active");
+    }
+
+    if (openManageCatBtn) openManageCatBtn.addEventListener("click", openCategoriesModal);
+    if (btnOpenCatFromModal) btnOpenCatFromModal.addEventListener("click", openCategoriesModal);
+    if (closePwdCategoriesBtn) closePwdCategoriesBtn.addEventListener("click", closeCategoriesModal);
+    if (closePwdCategoriesBtn2) closePwdCategoriesBtn2.addEventListener("click", closeCategoriesModal);
+    if (pwdCategoriesBackdrop) pwdCategoriesBackdrop.addEventListener("click", closeCategoriesModal);
+
+    if (addCategoryForm) {
+      addCategoryForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const editId = editCatIdInput ? editCatIdInput.value : "";
+        const name = newCatNameInput.value.trim();
+        const icon = newCatIconSelect.value;
+        if (!name) return;
+
+        if (editId) {
+          // Editing existing category
+          const cat = passwordCategories.find(c => c.id === editId);
+          if (cat) {
+            if (passwordCategories.some(c => c.id !== editId && c.name.toLowerCase() === name.toLowerCase())) {
+              alert(`Danh mục "${name}" đã tồn tại! Vui lòng chọn tên khác.`);
+              return;
+            }
+            cat.name = name;
+            cat.icon = icon;
+            savePasswordCategories(passwordCategories);
+            showToast(`Đã cập nhật danh mục "${name}" thành công!`);
+            resetCategoryForm();
+          }
+        } else {
+          // Adding new category
+          if (passwordCategories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+            alert(`Danh mục "${name}" đã tồn tại!`);
+            return;
+          }
+
+          const id = "cat_" + Date.now();
+          passwordCategories.push({ id, name, icon });
+          savePasswordCategories(passwordCategories);
+          showToast(`Đã thêm danh mục "${name}" thành công!`);
+          resetCategoryForm();
+        }
+      });
+    }
+
+    function updateOwnerFilterOptions() {
+      if (!filterPwdOwnerSelect) return;
+      const currentVal = filterPwdOwnerSelect.value;
+      const ownersSet = new Set();
+      familyPasswords.forEach(p => {
+        if (p.owner && p.owner.trim()) ownersSet.add(p.owner.trim());
+      });
+      const owners = Array.from(ownersSet).sort((a, b) => a.localeCompare(b, "vi"));
+
+      let optionsHtml = `<option value="all">Tất cả chủ tài khoản (${familyPasswords.length})</option>`;
+      owners.forEach(o => {
+        const count = familyPasswords.filter(p => (p.owner || "").trim() === o).length;
+        optionsHtml += `<option value="${escapeHtml(o)}">${escapeHtml(o)} (${count})</option>`;
+      });
+      filterPwdOwnerSelect.innerHTML = optionsHtml;
+      if (ownersSet.has(currentVal) || currentVal === "all") {
+        filterPwdOwnerSelect.value = currentVal;
+      } else {
+        filterPwdOwnerSelect.value = "all";
+      }
+    }
+
+    function renderPasswords() {
+      familyPasswords = getFamilyPasswords();
+      if (pwdCountBadge) pwdCountBadge.textContent = familyPasswords.length;
+      if (typeof refreshNavLabel === "function") refreshNavLabel();
+
+      // Calculate stats
+      let bankCount = 0;
+      let socialCount = 0;
+      let expiringCount = 0;
+
+      familyPasswords.forEach(item => {
+        if (item.category === "bank") bankCount++;
+        if (item.category === "social") socialCount++;
+        const rot = getPwdRotationStatus(item);
+        if (rot.status === "expired" || rot.status === "expiring") {
+          expiringCount++;
+        }
+      });
+
+      if (statTotalPwds) statTotalPwds.textContent = familyPasswords.length;
+      if (statBankPwds) statBankPwds.textContent = bankCount;
+      if (statSocialPwds) statSocialPwds.textContent = socialCount;
+      if (statExpiringPwds) statExpiringPwds.textContent = expiringCount;
+
+      updateOwnerFilterOptions();
+      updateCategoryDropdowns();
+
+      // Filtering
+      const query = pwdSearchQuery.toLowerCase();
+      let list = familyPasswords.filter(item => {
+        const matchSearch = !query ||
+          (item.owner || "").toLowerCase().includes(query) ||
+          (item.service || "").toLowerCase().includes(query) ||
+          (item.username || "").toLowerCase().includes(query) ||
+          (item.note || "").toLowerCase().includes(query) ||
+          (item.pin || "").toLowerCase().includes(query);
+
+        const matchOwner = pwdOwnerFilter === "all" || (item.owner || "").trim() === pwdOwnerFilter;
+        const matchCat = pwdCatFilter === "all" || item.category === pwdCatFilter;
+
+        const rot = getPwdRotationStatus(item);
+        let matchStatus = true;
+        if (pwdStatusFilter === "expired") matchStatus = rot.status === "expired";
+        else if (pwdStatusFilter === "expiring") matchStatus = rot.status === "expiring";
+        else if (pwdStatusFilter === "safe") matchStatus = rot.status === "safe";
+
+        return matchSearch && matchOwner && matchCat && matchStatus;
+      });
+
+      // Sorting
+      list.sort((a, b) => {
+        if (pwdSortMode === "owner-asc") {
+          return (a.owner || "").localeCompare(b.owner || "", "vi");
+        } else if (pwdSortMode === "service-asc") {
+          return (a.service || "").localeCompare(b.service || "", "vi");
+        } else if (pwdSortMode === "expiry-asc") {
+          const rotA = getPwdRotationStatus(a);
+          const rotB = getPwdRotationStatus(b);
+          return rotA.daysLeft - rotB.daysLeft;
+        } else {
+          // updated-desc
+          const timeA = new Date(a.updatedAt || a.lastChanged || a.createdAt || 0).getTime();
+          const timeB = new Date(b.updatedAt || b.lastChanged || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        }
+      });
+
+      if (pwdFilteredCount) pwdFilteredCount.textContent = list.length;
+
+      // Cập nhật trạng thái nút chuyển đổi chế độ xem
+      if (btnPwdViewList && btnPwdViewGrid) {
+        if (pwdViewMode === "list") {
+          btnPwdViewList.style.background = "var(--primary)";
+          btnPwdViewList.style.color = "#fff";
+          btnPwdViewGrid.style.background = "transparent";
+          btnPwdViewGrid.style.color = "var(--text-muted)";
+          pwdCardsGrid.className = "pwd-vault-list";
+        } else {
+          btnPwdViewGrid.style.background = "var(--primary)";
+          btnPwdViewGrid.style.color = "#fff";
+          btnPwdViewList.style.background = "transparent";
+          btnPwdViewList.style.color = "var(--text-muted)";
+          pwdCardsGrid.className = "pwd-vault-grid";
+        }
+      }
+
+      if (list.length === 0) {
+        pwdCardsGrid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: var(--text-muted); background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+            <i class="fa-solid fa-key" style="font-size: 2.8rem; margin-bottom: 12px; color: var(--text-muted); opacity: 0.6; display: block;"></i>
+            <h3 style="font-size: 1.1rem; color: var(--text-main); margin-bottom: 6px;">Không tìm thấy tài khoản phù hợp</h3>
+            <p style="font-size: 0.88rem;">Hãy thử tìm kiếm từ khóa khác hoặc bấm nút "+ Thêm Tài Khoản" để bắt đầu lưu trữ.</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (pwdViewMode === "list") {
+        // ==========================================
+        // DẠNG 1 HÀNG NGANG GỌN GÀNG (1 HÀNG / TÀI KHOẢN)
+        // ==========================================
+        const headerHtml = `
+          <div class="pwd-list-header">
+            <div style="min-width: 210px; flex: 1.2;">Dịch vụ &amp; Chủ tài khoản</div>
+            <div style="min-width: 170px; flex: 1.1;">Tên đăng nhập</div>
+            <div style="min-width: 190px; flex: 1.1;">Mật khẩu</div>
+            <div style="min-width: 150px; flex: 0.9;">Chu kỳ đổi</div>
+            <div style="flex-shrink: 0; min-width: 135px; text-align: right;">Thao tác</div>
+          </div>
+        `;
+
+        const rowsHtml = list.map(item => {
+          const visual = getServiceVisual(item.service, item.category);
+          const catInfo = getCategoryInfo(item.category);
+          const rot = getPwdRotationStatus(item);
+          const isPwdVisible = Boolean(visiblePasswordsMap[item.id]);
+          const isPinVisible = Boolean(visiblePinsMap[item.id]);
+          const historyCount = item.history ? item.history.length : 0;
+
+          const maskedPwd = isPwdVisible ? escapeHtml(item.password || "") : "••••••••••••";
+
+          let formattedLastChanged = "—";
+          if (item.lastChanged) {
+            const d = new Date(item.lastChanged);
+            if (!isNaN(d.getTime())) {
+              formattedLastChanged = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            }
+          }
+
+          return `
+            <div class="pwd-row-card ${rot.badgeClass}">
+              <!-- Cột 1: Dịch vụ & Chủ TK -->
+              <div class="pwd-row-service">
+                <div class="pwd-row-service-icon ${visual.class}">
+                  <i class="${visual.icon}"></i>
+                </div>
+                <div class="pwd-row-service-info">
+                  <div class="pwd-row-service-title" title="${escapeHtml(item.service)}">
+                    ${escapeHtml(item.service)}
+                    ${item.note ? `<i class="fa-regular fa-note-sticky" title="${escapeHtml(item.note)}" style="color: var(--primary); font-size: 0.82rem; cursor: help; margin-left: 2px;"></i>` : ''}
+                  </div>
+                  <div class="pwd-row-service-meta">
+                    <span class="pwd-owner-tag" style="font-size: 0.72rem; padding: 1px 7px;">
+                      <i class="fa-solid fa-user" style="font-size: 0.65rem;"></i> ${escapeHtml(item.owner || "Cá nhân")}
+                    </span>
+                    <span style="font-size: 0.74rem; color: var(--text-muted);">${escapeHtml(catInfo.name)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cột 2: Tên đăng nhập -->
+              <div class="pwd-row-field" title="Tên đăng nhập: ${escapeHtml(item.username)}">
+                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden;">
+                  <i class="fa-regular fa-user" style="color: var(--text-muted); font-size: 0.78rem;"></i>
+                  <span class="pwd-row-field-val">${escapeHtml(item.username)}</span>
+                </div>
+                <button type="button" class="pwd-icon-btn" title="Sao chép tên đăng nhập" onclick="copyToClipboard('${escapeHtml(item.username)}', 'tên đăng nhập')">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+
+              <!-- Cột 3: Mật khẩu & PIN -->
+              <div class="pwd-row-field" title="Mật khẩu">
+                <div style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden;">
+                  <i class="fa-solid fa-lock" style="color: var(--text-muted); font-size: 0.78rem;"></i>
+                  <span class="pwd-row-field-val" style="color: ${isPwdVisible ? 'var(--primary)' : 'inherit'};">${maskedPwd}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <button type="button" class="pwd-icon-btn" title="${isPwdVisible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}" onclick="togglePasswordVisibility('${item.id}')">
+                    <i class="fa-regular ${isPwdVisible ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                  </button>
+                  <button type="button" class="pwd-icon-btn" title="Sao chép mật khẩu" onclick="copyToClipboard('${escapeHtml(item.password)}', 'mật khẩu')">
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                  ${item.pin ? `
+                    <button type="button" class="pwd-icon-btn" style="color: #059669; font-size: 0.72rem; font-weight: 700; padding: 2px 5px; border-radius: 4px; background: rgba(16, 185, 129, 0.12);" title="Mã PIN: ${isPinVisible ? escapeHtml(item.pin) : '••••'} (Bấm để copy PIN)" onclick="copyToClipboard('${escapeHtml(item.pin)}', 'mã PIN')">
+                      PIN
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+
+              <!-- Cột 4 & 5: Chu kỳ, Hạn đổi & Thao tác -->
+              <div class="pwd-row-bottom">
+                <div class="pwd-row-status" title="Đổi ngày: ${formattedLastChanged} (Chu kỳ: ${item.rotationMonths ? item.rotationMonths + ' tháng' : 'Không bắt buộc'})">
+                  <span class="pwd-status-pill ${rot.badgeClass}">
+                    <i class="${rot.icon}"></i> ${rot.text}
+                  </span>
+                </div>
+
+                <div class="pwd-row-actions">
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 4px 8px;" onclick="openPwdHistory('${item.id}')" title="Xem lịch sử các mật khẩu cũ từng đổi">
+                    <i class="fa-solid fa-clock-rotate-left"></i> ${historyCount}
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 4px 8px;" onclick="editPasswordAccount('${item.id}')" title="Sửa thông tin / Đổi mật khẩu">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" style="font-size: 0.75rem; padding: 4px 8px; background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.25);" onclick="deletePasswordAccount('${item.id}')" title="Xóa tài khoản">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        pwdCardsGrid.innerHTML = headerHtml + rowsHtml;
+      } else {
+        // ==========================================
+        // DẠNG THẺ KHỐI LỚN (CARD GRID VIEW)
+        // ==========================================
+        pwdCardsGrid.innerHTML = list.map(item => {
+          const visual = getServiceVisual(item.service, item.category);
+          const catInfo = getCategoryInfo(item.category);
+          const rot = getPwdRotationStatus(item);
+          const isPwdVisible = Boolean(visiblePasswordsMap[item.id]);
+          const isPinVisible = Boolean(visiblePinsMap[item.id]);
+          const historyCount = item.history ? item.history.length : 0;
+
+          const maskedPwd = isPwdVisible ? escapeHtml(item.password || "") : "••••••••••••";
+          const maskedPin = isPinVisible ? escapeHtml(item.pin || "") : "••••••";
+
+          let formattedLastChanged = "—";
+          if (item.lastChanged) {
+            const d = new Date(item.lastChanged);
+            if (!isNaN(d.getTime())) {
+              formattedLastChanged = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+            }
+          }
+
+          return `
+            <div class="pwd-card ${rot.badgeClass}">
+              <div class="pwd-card-header">
+                <div class="pwd-service-info">
+                  <div class="pwd-service-icon ${visual.class}">
+                    <i class="${visual.icon}"></i>
+                  </div>
+                  <div>
+                    <h3 class="pwd-service-name">${escapeHtml(item.service)}</h3>
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                      <span class="pwd-owner-tag"><i class="fa-solid fa-user"></i> ${escapeHtml(item.owner || "Cá nhân")}</span>
+                      <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">${escapeHtml(catInfo.name)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Fields -->
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Username Row -->
+                <div class="pwd-field-row">
+                  <span class="pwd-field-label"><i class="fa-regular fa-user"></i> Tên ĐN:</span>
+                  <span class="pwd-field-val" title="${escapeHtml(item.username)}">${escapeHtml(item.username)}</span>
+                  <div class="pwd-field-actions">
+                    <button type="button" class="pwd-icon-btn" title="Sao chép tên đăng nhập" onclick="copyToClipboard('${escapeHtml(item.username)}', 'tên đăng nhập')">
+                      <i class="fa-regular fa-copy"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Password Row -->
+                <div class="pwd-field-row">
+                  <span class="pwd-field-label"><i class="fa-solid fa-lock"></i> Mật khẩu:</span>
+                  <span class="pwd-field-val" style="color: ${isPwdVisible ? 'var(--primary)' : 'inherit'};">${maskedPwd}</span>
+                  <div class="pwd-field-actions">
+                    <button type="button" class="pwd-icon-btn" title="${isPwdVisible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}" onclick="togglePasswordVisibility('${item.id}')">
+                      <i class="fa-regular ${isPwdVisible ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                    </button>
+                    <button type="button" class="pwd-icon-btn" title="Sao chép mật khẩu" onclick="copyToClipboard('${escapeHtml(item.password)}', 'mật khẩu')">
+                      <i class="fa-regular fa-copy"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- PIN Row (if present) -->
+                ${item.pin ? `
+                  <div class="pwd-field-row">
+                    <span class="pwd-field-label"><i class="fa-solid fa-key"></i> Mã PIN/OTP:</span>
+                    <span class="pwd-field-val" style="color: ${isPinVisible ? '#059669' : 'inherit'};">${maskedPin}</span>
+                    <div class="pwd-field-actions">
+                      <button type="button" class="pwd-icon-btn" title="${isPinVisible ? 'Ẩn PIN' : 'Hiện PIN'}" onclick="togglePinVisibility('${item.id}')">
+                        <i class="fa-regular ${isPinVisible ? 'fa-eye-slash' : 'fa-eye'}"></i>
+                      </button>
+                      <button type="button" class="pwd-icon-btn" title="Sao chép mã PIN" onclick="copyToClipboard('${escapeHtml(item.pin)}', 'mã PIN')">
+                        <i class="fa-regular fa-copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Rotation / Expiry Status Badge -->
+              <div class="pwd-expiry-badge ${rot.badgeClass}">
+                <i class="${rot.icon}"></i>
+                <div style="flex: 1;">
+                  <div>${rot.text}</div>
+                  <div style="font-size: 0.73rem; opacity: 0.85; margin-top: 2px;">Đổi ngày: <strong>${formattedLastChanged}</strong> (Chu kỳ: ${item.rotationMonths ? item.rotationMonths + ' tháng' : 'Không bắt buộc'})</div>
+                </div>
+              </div>
+
+              <!-- Notes if present -->
+              ${item.note ? `
+                <div style="font-size: 0.82rem; color: var(--text-muted); background: var(--bg-hover); padding: 8px 12px; border-radius: var(--radius-sm); border-left: 3px solid var(--border-color); line-height: 1.4;">
+                  <i class="fa-regular fa-note-sticky" style="margin-right: 4px;"></i> ${escapeHtml(item.note)}
+                </div>
+              ` : ''}
+
+              <!-- Card Footer -->
+              <div class="pwd-card-footer">
+                <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.8rem; padding: 5px 10px;" onclick="openPwdHistory('${item.id}')" title="Xem lịch sử các mật khẩu cũ từng đổi">
+                  <i class="fa-solid fa-clock-rotate-left"></i> Lịch sử (${historyCount})
+                </button>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.8rem; padding: 5px 10px;" onclick="editPasswordAccount('${item.id}')">
+                    <i class="fa-solid fa-pen-to-square"></i> Sửa / Đổi MK
+                  </button>
+                  <button type="button" class="btn btn-danger btn-sm" style="font-size: 0.8rem; padding: 5px 10px; background: rgba(239, 68, 68, 0.12); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.25);" onclick="deletePasswordAccount('${item.id}')" title="Xóa tài khoản">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    // Toggle Visibility
+    window.togglePasswordVisibility = function(id) {
+      visiblePasswordsMap[id] = !visiblePasswordsMap[id];
+      renderPasswords();
+    };
+
+    window.togglePinVisibility = function(id) {
+      visiblePinsMap[id] = !visiblePinsMap[id];
+      renderPasswords();
+    };
+
+    // Modal Add / Edit
+    function openAddModal() {
+      pwdForm.reset();
+      pwdEditId.value = "";
+      originalPasswordForEdit = "";
+      pwdModalTitle.innerHTML = `<i class="fa-solid fa-key" style="color: var(--primary);"></i> Thêm Tài Khoản Mật Khẩu`;
+      pwdChangeNoticeBox.style.display = "none";
+      pwdLastChangedInput.value = new Date().toISOString().split("T")[0];
+      pwdRotationSelect.value = "6";
+      updateCategoryDropdowns();
+      pwdModal.classList.add("active");
+    }
+
+    window.editPasswordAccount = function(id) {
+      const item = familyPasswords.find(p => p.id === id);
+      if (!item) return;
+
+      updateCategoryDropdowns();
+      pwdEditId.value = item.id;
+      originalPasswordForEdit = item.password || "";
+      pwdOwnerInput.value = item.owner || "";
+      pwdCategorySelect.value = item.category || "bank";
+      pwdServiceInput.value = item.service || "";
+      pwdUsernameInput.value = item.username || "";
+      pwdPinInput.value = item.pin || "";
+      pwdPasswordInput.value = item.password || "";
+      pwdRotationSelect.value = item.rotationMonths !== undefined ? String(item.rotationMonths) : "6";
+      pwdLastChangedInput.value = item.lastChanged || new Date().toISOString().split("T")[0];
+      pwdNoteInput.value = item.note || "";
+      pwdChangeReasonInput.value = "";
+      pwdChangeNoticeBox.style.display = "none";
+
+      pwdModalTitle.innerHTML = `<i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Sửa Tài Khoản: ${escapeHtml(item.service)} (${escapeHtml(item.owner || "Cá nhân")})`;
+      pwdModal.classList.add("active");
+    };
+
+    function closePwdModal() {
+      pwdModal.classList.remove("active");
+      pwdForm.reset();
+    }
+
+    // Monitor password change while editing
+    pwdPasswordInput.addEventListener("input", () => {
+      if (pwdEditId.value && originalPasswordForEdit) {
+        if (pwdPasswordInput.value !== originalPasswordForEdit) {
+          pwdChangeNoticeBox.style.display = "block";
+        } else {
+          pwdChangeNoticeBox.style.display = "none";
+        }
+      }
+    });
+
+    // Random password generator button
+    btnGenPassword.addEventListener("click", () => {
+      const gen = generateStrongPassword();
+      pwdPasswordInput.value = gen;
+      pwdPasswordInput.type = "text";
+      if (pwdEditId.value && originalPasswordForEdit && gen !== originalPasswordForEdit) {
+        pwdChangeNoticeBox.style.display = "block";
+      }
+      showToast("Đã tạo mật khẩu ngẫu nhiên an toàn!");
+    });
+
+    // Toggle password input visibility in form
+    togglePwdInputVisibility.addEventListener("click", () => {
+      const icon = togglePwdInputVisibility.querySelector("i");
+      if (pwdPasswordInput.type === "password") {
+        pwdPasswordInput.type = "text";
+        icon.className = "fa-regular fa-eye-slash";
+      } else {
+        pwdPasswordInput.type = "password";
+        icon.className = "fa-regular fa-eye";
+      }
+    });
+
+    pwdForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = pwdEditId.value;
+      const owner = pwdOwnerInput.value.trim();
+      const category = pwdCategorySelect.value;
+      const service = pwdServiceInput.value.trim();
+      const username = formatUsername(pwdUsernameInput.value.trim());
+      const pin = pwdPinInput.value.trim();
+      const password = pwdPasswordInput.value.trim();
+      const rotationMonths = Number(pwdRotationSelect.value);
+      const lastChanged = pwdLastChangedInput.value || new Date().toISOString().split("T")[0];
+      const note = pwdNoteInput.value.trim();
+      const changeReason = pwdChangeReasonInput.value.trim();
+
+      if (!owner || !service || !username || !password) {
+        alert("Vui lòng điền đầy đủ Chủ tài khoản, Dịch vụ, Tên đăng nhập và Mật khẩu!");
+        return;
+      }
+
+      if (id) {
+        // Edit existing
+        const idx = familyPasswords.findIndex(p => p.id === id);
+        if (idx !== -1) {
+          const item = familyPasswords[idx];
+          // Check if password changed -> push to history
+          if (originalPasswordForEdit && password !== originalPasswordForEdit) {
+            if (!item.history) item.history = [];
+            item.history.unshift({
+              password: originalPasswordForEdit,
+              changedAt: new Date().toISOString(),
+              reason: changeReason || "Đổi mật khẩu định kỳ"
+            });
+            item.lastChanged = new Date().toISOString().split("T")[0];
+          } else {
+            item.lastChanged = lastChanged;
+          }
+
+          item.owner = owner;
+          item.category = category;
+          item.service = service;
+          item.username = username;
+          item.pin = pin;
+          item.password = password;
+          item.rotationMonths = rotationMonths;
+          item.note = note;
+          item.updatedAt = new Date().toISOString();
+        }
+      } else {
+        // Add new
+        const newItem = {
+          id: "pwd_" + Date.now(),
+          owner: owner,
+          category: category,
+          service: service,
+          username: username,
+          pin: pin,
+          password: password,
+          rotationMonths: rotationMonths,
+          lastChanged: lastChanged,
+          note: note,
+          history: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        familyPasswords.unshift(newItem);
+      }
+
+      saveFamilyPasswords(familyPasswords);
+      renderPasswords();
+      closePwdModal();
+      showToast("Đã lưu thông tin tài khoản thành công!");
+    });
+
+    window.deletePasswordAccount = function(id) {
+      const item = familyPasswords.find(p => p.id === id);
+      if (!item) return;
+      if (confirm(`Bạn có chắc chắn muốn xóa tài khoản "${item.service}" (${item.owner})?`)) {
+        familyPasswords = familyPasswords.filter(p => p.id !== id);
+        saveFamilyPasswords(familyPasswords);
+        renderPasswords();
+        showToast("Đã xóa tài khoản.");
+      }
+    };
+
+    // History Modal
+    window.openPwdHistory = function(id) {
+      const item = familyPasswords.find(p => p.id === id);
+      if (!item) return;
+      currentHistoryActiveItem = item;
+      isHistoryCurrentVisible = false;
+
+      pwdHistoryTitle.innerHTML = `<i class="fa-solid fa-clock-rotate-left" style="color: var(--primary);"></i> Lịch Sử Mật Khẩu`;
+      pwdHistorySubtitle.innerHTML = `Tài khoản: <strong>${escapeHtml(item.service)}</strong> - Chủ tài khoản: <strong>${escapeHtml(item.owner)}</strong>`;
+
+      updateHistoryCurrentDisplay();
+
+      const history = item.history || [];
+      if (history.length === 0) {
+        pwdHistoryList.innerHTML = `
+          <div style="text-align: center; padding: 24px; color: var(--text-muted); background: var(--bg-hover); border-radius: var(--radius-md);">
+            <i class="fa-regular fa-clock" style="font-size: 1.8rem; margin-bottom: 8px; display: block;"></i>
+            Chưa có lần thay đổi mật khẩu nào được ghi nhận trước đây.
+          </div>
+        `;
+      } else {
+        pwdHistoryList.innerHTML = history.map((h, idx) => {
+          const d = new Date(h.changedAt);
+          let dateStr = h.changedAt;
+          if (!isNaN(d.getTime())) {
+            dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} lúc ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          }
+
+          return `
+            <div class="pwd-history-item">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">
+                  <i class="fa-solid fa-clock"></i> Lần đổi #${history.length - idx}: ${dateStr}
+                </span>
+                <button type="button" class="btn btn-secondary btn-sm" style="font-size: 0.75rem; padding: 3px 8px;" onclick="restoreHistoricalPassword('${item.id}', ${idx})" title="Khôi phục lại mật khẩu này làm mật khẩu hiện tại">
+                  <i class="fa-solid fa-rotate-left"></i> Đặt lại mật khẩu này
+                </button>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;">
+                <span style="font-family: var(--font-mono); font-size: 0.98rem; font-weight: 700; color: var(--text-main); word-break: break-all;" id="histVal_${idx}">
+                  ••••••••••••
+                </span>
+                <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                  <button type="button" class="pwd-icon-btn" onclick="toggleHistoricalVal(${idx}, '${escapeHtml(h.password)}')" title="Hiện / Ẩn">
+                    <i class="fa-regular fa-eye" id="histEye_${idx}"></i>
+                  </button>
+                  <button type="button" class="pwd-icon-btn" onclick="copyToClipboard('${escapeHtml(h.password)}', 'mật khẩu cũ')" title="Sao chép">
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              ${h.reason ? `
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                  <em>Ghi chú: ${escapeHtml(h.reason)}</em>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join("");
+      }
+
+      pwdHistoryModal.classList.add("active");
+    };
+
+    function updateHistoryCurrentDisplay() {
+      if (!currentHistoryActiveItem) return;
+      if (isHistoryCurrentVisible) {
+        pwdHistoryCurrentVal.textContent = currentHistoryActiveItem.password || "";
+        btnToggleHistoryCurrent.innerHTML = `<i class="fa-regular fa-eye-slash"></i>`;
+      } else {
+        pwdHistoryCurrentVal.textContent = "••••••••••••";
+        btnToggleHistoryCurrent.innerHTML = `<i class="fa-regular fa-eye"></i>`;
+      }
+    }
+
+    btnToggleHistoryCurrent.addEventListener("click", () => {
+      isHistoryCurrentVisible = !isHistoryCurrentVisible;
+      updateHistoryCurrentDisplay();
+    });
+
+    btnCopyHistoryCurrent.addEventListener("click", () => {
+      if (currentHistoryActiveItem) {
+        copyToClipboard(currentHistoryActiveItem.password, "mật khẩu hiện tại");
+      }
+    });
+
+    window.toggleHistoricalVal = function(idx, rawVal) {
+      const el = document.getElementById(`histVal_${idx}`);
+      const eye = document.getElementById(`histEye_${idx}`);
+      if (!el || !eye) return;
+      if (el.textContent.includes("••••")) {
+        el.textContent = rawVal;
+        eye.className = "fa-regular fa-eye-slash";
+      } else {
+        el.textContent = "••••••••••••";
+        eye.className = "fa-regular fa-eye";
+      }
+    };
+
+    window.restoreHistoricalPassword = function(itemId, histIdx) {
+      const item = familyPasswords.find(p => p.id === itemId);
+      if (!item || !item.history || !item.history[histIdx]) return;
+      const targetHistorical = item.history[histIdx];
+
+      if (confirm(`Bạn có chắc chắn muốn khôi phục mật khẩu "${targetHistorical.password}" làm mật khẩu hiện tại cho ${item.service}? Mật khẩu hiện tại sẽ được lưu ngược vào lịch sử.`)) {
+        const oldCurrent = item.password;
+        item.history.unshift({
+          password: oldCurrent,
+          changedAt: new Date().toISOString(),
+          reason: "Khôi phục lại mật khẩu cũ trước đây"
+        });
+        item.password = targetHistorical.password;
+        item.lastChanged = new Date().toISOString().split("T")[0];
+        item.updatedAt = new Date().toISOString();
+
+        saveFamilyPasswords(familyPasswords);
+        renderPasswords();
+        openPwdHistory(itemId);
+        showToast("Đã khôi phục mật khẩu thành công!");
+      }
+    };
+
+    function closePwdHistoryModal() {
+      pwdHistoryModal.classList.remove("active");
+    }
+
+    // Modal buttons wiring
+    openAddPwdBtn.addEventListener("click", openAddModal);
+    closePwdModalBtn.addEventListener("click", closePwdModal);
+    cancelPwdModalBtn.addEventListener("click", closePwdModal);
+    pwdModalBackdrop.addEventListener("click", closePwdModal);
+
+    closePwdHistoryBtn.addEventListener("click", closePwdHistoryModal);
+    closePwdHistoryBtn2.addEventListener("click", closePwdHistoryModal);
+    pwdHistoryBackdrop.addEventListener("click", closePwdHistoryModal);
+
+    // Toolbar filters wiring
+    searchPwdInput.addEventListener("input", (e) => {
+      pwdSearchQuery = e.target.value.trim();
+      renderPasswords();
+    });
+
+    filterPwdOwnerSelect.addEventListener("change", (e) => {
+      pwdOwnerFilter = e.target.value;
+      renderPasswords();
+    });
+
+    filterPwdCatSelect.addEventListener("change", (e) => {
+      pwdCatFilter = e.target.value;
+      renderPasswords();
+    });
+
+    filterPwdStatusSelect.addEventListener("change", (e) => {
+      pwdStatusFilter = e.target.value;
+      renderPasswords();
+    });
+
+    sortPwdSelect.addEventListener("change", (e) => {
+      pwdSortMode = e.target.value;
+      renderPasswords();
+    });
+
+    // View Switcher wiring
+    if (btnPwdViewList) {
+      btnPwdViewList.addEventListener("click", () => {
+        pwdViewMode = "list";
+        localStorage.setItem("devlog_pwd_view_mode", "list");
+        renderPasswords();
+      });
+    }
+
+    if (btnPwdViewGrid) {
+      btnPwdViewGrid.addEventListener("click", () => {
+        pwdViewMode = "grid";
+        localStorage.setItem("devlog_pwd_view_mode", "grid");
+        renderPasswords();
+      });
+    }
+
+    // Google Drive Sync wiring
+    if (syncPwdCloudBtn) {
+      syncPwdCloudBtn.addEventListener("click", async () => {
+        if (!DevLogAuth.isCloudConnected()) {
+          alert("Bạn chưa kết nối Google Drive / Sheets. Hãy thiết lập đường link Web App Apps Script để đồng bộ online!");
+          cloudConfigModal.classList.add("active");
+          return;
+        }
+
+        const origHtml = syncPwdCloudBtn.innerHTML;
+        syncPwdCloudBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang đồng bộ...`;
+        syncPwdCloudBtn.disabled = true;
+
+        try {
+          const res = await DevLogAuth.syncPasswordsToCloud(familyPasswords, passwordCategories);
+          if (res.success) {
+            showToast("Đã đồng bộ toàn bộ mật khẩu lên Google Sheets thành công!");
+            syncPwdCloudBtn.innerHTML = `<i class="fa-solid fa-check"></i> Đã đồng bộ`;
+            setTimeout(() => {
+              syncPwdCloudBtn.innerHTML = origHtml;
+              syncPwdCloudBtn.disabled = false;
+            }, 2500);
+          } else {
+            alert("Lỗi khi đồng bộ lên Google Sheets: " + res.message);
+            syncPwdCloudBtn.innerHTML = origHtml;
+            syncPwdCloudBtn.disabled = false;
+          }
+        } catch (err) {
+          alert("Lỗi kết nối: " + err.message);
+          syncPwdCloudBtn.innerHTML = origHtml;
+          syncPwdCloudBtn.disabled = false;
+        }
+      });
+    }
+
+    if (pullPwdCloudBtn) {
+      pullPwdCloudBtn.addEventListener("click", async () => {
+        if (!DevLogAuth.isCloudConnected()) {
+          alert("Bạn chưa kết nối Google Drive / Sheets. Hãy thiết lập đường link Web App Apps Script để tải dữ liệu!");
+          cloudConfigModal.classList.add("active");
+          return;
+        }
+
+        const origHtml = pullPwdCloudBtn.innerHTML;
+        pullPwdCloudBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang tải...`;
+        pullPwdCloudBtn.disabled = true;
+
+        try {
+          const res = await DevLogAuth.fetchPasswordsFromCloud();
+          if (res.success) {
+            const cloudPwds = res.passwords || [];
+            const cloudCats = res.categories || [];
+
+            if (cloudPwds.length === 0) {
+              showToast("Chưa có dữ liệu mật khẩu nào trên Google Sheets.");
+            } else {
+              if (confirm(`Tìm thấy ${cloudPwds.length} tài khoản từ Google Sheets.\n\nBạn có muốn cập nhật vào máy này không?`)) {
+                familyPasswords = cloudPwds;
+                saveFamilyPasswords(familyPasswords);
+
+                if (cloudCats.length > 0) {
+                  passwordCategories = cloudCats;
+                  savePasswordCategories(passwordCategories);
+                  updateCategoryDropdowns();
+                }
+
+                renderPasswords();
+                showToast(`Đã tải thành công ${cloudPwds.length} tài khoản từ Google Sheets!`);
+              }
+            }
+          } else {
+            alert("Lỗi tải từ Google Sheets: " + res.message);
+          }
+        } catch (err) {
+          alert("Lỗi kết nối: " + err.message);
+        } finally {
+          pullPwdCloudBtn.innerHTML = origHtml;
+          pullPwdCloudBtn.disabled = false;
+        }
+      });
+    }
+
+    // Excel Export
+    exportPwdExcelBtn.addEventListener("click", () => {
+      if (familyPasswords.length === 0) {
+        alert("Không có tài khoản nào để xuất Excel.");
+        return;
+      }
+
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      const filename = `Danh_Sach_Mat_Khau_${dateStr}.xlsx`;
+
+      try {
+        if (typeof XLSX !== "undefined") {
+          const wsData = [
+            [
+              "STT",
+              "Chủ tài khoản",
+              "Dịch vụ / Ứng dụng",
+              "Danh mục",
+              "Tên đăng nhập / SĐT / STK",
+              "Mật khẩu hiện tại",
+              "Mã PIN / Smart OTP",
+              "Ngày đổi gần nhất",
+              "Chu kỳ đổi",
+              "Tình trạng hạn đổi",
+              "Số lần đổi cũ",
+              "Ghi chú bảo mật"
+            ]
+          ];
+
+          familyPasswords.forEach((item, idx) => {
+            const rot = getPwdRotationStatus(item);
+            const catInfo = getCategoryInfo(item.category);
+            wsData.push([
+              idx + 1,
+              item.owner || "",
+              item.service || "",
+              catInfo.name,
+              item.username || "",
+              item.password || "",
+              item.pin || "",
+              item.lastChanged || "",
+              item.rotationMonths ? `${item.rotationMonths} tháng` : "Không bắt buộc",
+              rot.text,
+              item.history ? item.history.length : 0,
+              item.note || ""
+            ]);
+          });
+
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+          // Định dạng cột Tên đăng nhập (cột E, index 4) và Mã PIN (cột G, index 6) dạng Text để Excel không nuốt số 0
+          for (let R = 1; R < wsData.length; R++) {
+            const userCellRef = XLSX.utils.encode_cell({ r: R, c: 4 });
+            if (ws[userCellRef]) {
+              ws[userCellRef].t = 's';
+              ws[userCellRef].z = '@';
+            }
+            const pinCellRef = XLSX.utils.encode_cell({ r: R, c: 6 });
+            if (ws[pinCellRef]) {
+              ws[pinCellRef].t = 's';
+              ws[pinCellRef].z = '@';
+            }
+          }
+
+          ws["!cols"] = [
+            { wch: 6 },
+            { wch: 18 },
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 22 },
+            { wch: 20 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 16 },
+            { wch: 35 },
+            { wch: 14 },
+            { wch: 35 }
+          ];
+
+          XLSX.utils.book_append_sheet(wb, ws, "Danh Sách Mật Khẩu");
+          XLSX.writeFile(wb, filename);
+        } else {
+          // Fallback: CSV UTF-8 with BOM
+          let csv = "\uFEFFSTT,Chủ tài khoản,Dịch vụ,Danh mục,Tên đăng nhập,Mật khẩu,Mã PIN,Ngày đổi,Chu kỳ,Tình trạng,Số lần đổi,Ghi chú\n";
+          familyPasswords.forEach((item, idx) => {
+            const rot = getPwdRotationStatus(item);
+            const catInfo = getCategoryInfo(item.category);
+            const row = [
+              idx + 1,
+              `"${(item.owner || "").replace(/"/g, '""')}"`,
+              `"${(item.service || "").replace(/"/g, '""')}"`,
+              `"${catInfo.name.replace(/"/g, '""')}"`,
+              `"${(item.username || "").replace(/"/g, '""')}"`,
+              `"${(item.password || "").replace(/"/g, '""')}"`,
+              `"${(item.pin || "").replace(/"/g, '""')}"`,
+              `"${(item.lastChanged || "").replace(/"/g, '""')}"`,
+              `"${item.rotationMonths ? item.rotationMonths + ' tháng' : 'Không bắt buộc'}"`,
+              `"${rot.text.replace(/"/g, '""')}"`,
+              item.history ? item.history.length : 0,
+              `"${(item.note || "").replace(/"/g, '""')}"`
+            ];
+            csv += row.join(",") + "\n";
+          });
+
+          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Danh_Sach_Mat_Khau_${dateStr}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+
+        const orig = exportPwdExcelBtn.innerHTML;
+        exportPwdExcelBtn.innerHTML = `<i class="fa-solid fa-check" style="color: #107c41;"></i> Đã xuất (${familyPasswords.length})`;
+        setTimeout(() => { exportPwdExcelBtn.innerHTML = orig; }, 2500);
+      } catch (err) {
+        console.error("Lỗi xuất Excel:", err);
+        alert("Có lỗi khi xuất file Excel: " + err.message);
+      }
+    });
+
+    // JSON Backup & Restore
+    exportPwdJsonBtn.addEventListener("click", () => {
+      const backupData = {
+        categories: passwordCategories,
+        passwords: familyPasswords
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const a = document.createElement("a");
+      a.href = dataStr;
+      a.download = `Ket_Mat_Khau_Backup_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast("Đã tải xuống file sao lưu JSON an toàn!");
+    });
+
+    importPwdJsonBtn.addEventListener("click", () => {
+      importPwdJsonInput.click();
+    });
+
+    importPwdJsonInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          let passList = [];
+          if (Array.isArray(parsed)) {
+            passList = parsed;
+          } else if (parsed && Array.isArray(parsed.passwords)) {
+            passList = parsed.passwords;
+            if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
+              const existingCatIds = new Set(passwordCategories.map(c => c.id));
+              parsed.categories.forEach(c => {
+                if (!existingCatIds.has(c.id)) passwordCategories.push(c);
+              });
+              savePasswordCategories(passwordCategories);
+            }
+          } else {
+            throw new Error("File không đúng định dạng dữ liệu mật khẩu.");
+          }
+
+          if (confirm(`Tìm thấy ${passList.length} tài khoản trong file. Bạn có muốn thêm vào két mật khẩu hiện tại không?`)) {
+            const existingIds = new Set(familyPasswords.map(p => p.id));
+            let addedCount = 0;
+            passList.forEach(p => {
+              if (p.service && p.username) {
+                if (existingIds.has(p.id)) {
+                  p.id = "pwd_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+                }
+                familyPasswords.push(p);
+                addedCount++;
+              }
+            });
+            saveFamilyPasswords(familyPasswords);
+            renderPasswords();
+            showToast(`Đã khôi phục thành công ${addedCount} tài khoản!`);
+          }
+        } catch (err) {
+          alert("Lỗi đọc file JSON: " + err.message);
+        }
+        importPwdJsonInput.value = "";
+      };
+      reader.readAsText(file);
+    });
+
+    // Initial render & Cloud auto-pull if connected
+    updateCloudBadge();
+    renderNotes();
+    renderFiles();
+    loadDeclarations();
+    renderPasswords();
+
+    if (DevLogAuth.isCloudConnected()) {
+      syncIcon.classList.add("sync-spinner");
+      DevLogAuth.fetchAllFromCloud().then(res => {
+        syncIcon.classList.remove("sync-spinner");
+        if (res.success) {
+          notes = res.notes;
+          files = res.files;
+          renderNotes();
+          renderFiles();
+          if (res.passwords && res.passwords.length > 0 && familyPasswords.length === 0) {
+            familyPasswords = res.passwords;
+            saveFamilyPasswords(familyPasswords);
+            if (res.passwordCategories && res.passwordCategories.length > 0) {
+              passwordCategories = res.passwordCategories;
+              savePasswordCategories(passwordCategories);
+              updateCategoryDropdowns();
+            }
+            renderPasswords();
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

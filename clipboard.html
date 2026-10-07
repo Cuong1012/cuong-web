@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trình Xem & Mở Ảnh Clipboard | cuongtv.</title>
+  <meta name="description" content="Trình xem, chỉnh sửa và mở ảnh nhanh từ bộ nhớ tạm (clipboard) bằng trình duyệt. Hỗ trợ phóng to, xoay, xem kích thước và lưu vào Google Drive." />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Main Styles -->
+  <link rel="stylesheet" href="css/style.css" />
+
+  <style>
+    .clipboard-page-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-body);
+      color: var(--text-main);
+    }
+
+    .clipboard-header {
+      padding: 8px 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      border-bottom: 1px dashed var(--border-color);
+      margin-bottom: 12px;
+    }
+
+    .clipboard-title {
+      font-size: 1.18rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .clipboard-subtitle {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .clipboard-key-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      font-weight: 700;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 1px 0 var(--border-color);
+      color: var(--primary);
+    }
+
+    /* Drop / Paste Zone */
+    .paste-zone-card {
+      background: var(--bg-surface);
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 60px 24px;
+      text-align: center;
+      transition: var(--transition);
+      cursor: pointer;
+      margin: 20px auto;
+      max-width: 800px;
+      position: relative;
+    }
+
+    .paste-zone-card:hover, .paste-zone-card.dragover {
+      border-color: var(--primary);
+      background: var(--primary-glow);
+      transform: translateY(-2px);
+    }
+
+    .paste-icon {
+      font-size: 3.5rem;
+      color: var(--primary);
+      margin-bottom: 18px;
+      display: inline-block;
+      animation: floatIcon 3s ease-in-out infinite;
+    }
+
+    @keyframes floatIcon {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    .paste-prompt-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .paste-prompt-desc {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 26px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.6;
+    }
+
+    .paste-actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    /* Viewer Container */
+    .viewer-container {
+      display: none;
+      flex-direction: column;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-xl);
+      margin-bottom: 30px;
+    }
+
+    .viewer-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      user-select: none;
+      scrollbar-width: none;
+    }
+
+    .viewer-toolbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .toolbar-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
+    .tool-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 11px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      white-space: nowrap;
+      height: 35px;
+    }
+
+    .tool-btn.icon-only {
+      padding: 6px 9px;
+      min-width: 35px;
+    }
+
+    .tool-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .tool-btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .tool-btn.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .tool-btn.danger {
+      color: var(--danger);
+    }
+
+    .tool-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: var(--danger);
+    }
+
+    .zoom-level-badge {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      min-width: 58px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    /* Viewer Stage */
+    .viewer-stage {
+      position: relative;
+      height: 78vh;
+      min-height: 560px;
+      overflow: hidden;
+      background-color: #0b0f19;
+      background-image: 
+        linear-gradient(45deg, #131b2e 25%, transparent 25%), 
+        linear-gradient(-45deg, #131b2e 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #131b2e 75%), 
+        linear-gradient(-45deg, transparent 75%, #131b2e 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+    }
+
+    .viewer-stage:active {
+      cursor: grabbing;
+    }
+
+    .viewer-img-wrapper {
+      position: absolute;
+      transform-origin: center center;
+      transition: transform 0.05s ease-out;
+      will-change: transform;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .viewer-img-wrapper img {
+      display: block;
+      max-width: none;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+        /* Fine Rotation Slider Bar */
+    .viewer-rotate-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      padding: 7px 18px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      font-size: 0.84rem;
+      user-select: none;
+    }
+
+    .rotate-controls-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .rotate-bar-label {
+      font-weight: 700;
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.82rem;
+    }
+
+    .fine-rotate-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 220px;
+      height: 6px;
+      border-radius: 99px;
+      background: var(--bg-hover);
+      outline: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .fine-rotate-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 0 2px var(--bg-surface), 0 2px 6px rgba(0,0,0,0.3);
+      transition: transform 0.1s ease;
+    }
+
+    .fine-rotate-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .fine-rotate-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      border: 2px solid var(--bg-surface);
+    }
+
+    .rotate-step-btn {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: var(--font-mono);
+    }
+
+    .rotate-step-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .rotate-angle-badge {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--primary-glow);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      min-width: 52px;
+      text-align: center;
+    }
+
+    .rotate-reset-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .rotate-reset-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+      border-color: var(--text-muted);
+    }
+
+    .rotate-hint-text {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Viewer Info Bar */
+    .viewer-infobar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 10px 20px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-color);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .info-tags {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .info-tag-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .info-tag-item strong {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    /* Toast Notification */
+    .toast-popup {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid var(--primary);
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-xl);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-main);
+      z-index: 9999;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .toast-popup.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .toast-popup.success { border-left-color: var(--success); }
+    .toast-popup.error { border-left-color: var(--danger); }
+
+    
+    /* ==========================================
+       CROP / REGION SELECTION STYLES
+       ========================================== */
+    .crop-toolbar-hint {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #10b981;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px dashed rgba(16, 185, 129, 0.45);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      animation: fadeInDown 0.2s ease-out;
+    }
+
+    .crop-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      cursor: crosshair;
+      user-select: none;
+    }
+
+    .crop-overlay.active {
+      display: block;
+    }
+
+    .crop-box {
+      position: absolute;
+      border: 2px dashed #10b981;
+      background: rgba(16, 185, 129, 0.16);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+      display: none;
+      pointer-events: none;
+    }
+
+    .crop-box-badge {
+      position: absolute;
+      top: -24px;
+      left: 0;
+      background: #10b981;
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .crop-actions-bar {
+      position: absolute;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+      z-index: 120;
+      user-select: none;
+      pointer-events: auto;
+    }
+
+    .crop-act-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: var(--transition);
+    }
+
+    .crop-act-btn.primary {
+      background: #10b981;
+      color: #ffffff;
+    }
+
+    .crop-act-btn.primary:hover {
+      background: #059669;
+    }
+
+    .crop-act-btn.secondary {
+      background: rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .crop-act-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+
+    /* OCR Modal Styles */
+    .ocr-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 10000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s ease;
+    }
+
+    .ocr-modal-backdrop.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .ocr-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 96%;
+      max-width: 1240px;
+      height: 94vh;
+      max-height: 94vh;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+      z-index: 10001;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    .ocr-modal.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .ocr-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-card);
+      flex-shrink: 0;
+    }
+
+    .ocr-modal-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ocr-modal-title h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .ocr-close-btn {
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+      transition: var(--transition);
+    }
+
+    .ocr-close-btn:hover {
+      color: var(--danger);
+    }
+
+    .ocr-modal-body {
+      padding: 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .ocr-slim-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      background: var(--bg-card);
+      padding: 6px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .ocr-slim-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ocr-select {
+      padding: 4px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-size: 0.82rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .ocr-progress-container {
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin: -2px 0 2px;
+      flex-shrink: 0;
+    }
+
+    .ocr-progress-bar-bg {
+      height: 3px;
+      background: rgba(99, 102, 241, 0.15);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .ocr-progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 99px;
+      transition: width 0.3s ease;
+    }
+
+    .ocr-result-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .ocr-result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .ocr-stats-badge {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 1px 7px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+    }
+
+    #ocrResultText {
+      width: 100%;
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      padding: 14px 18px;
+      font-family: var(--font-main);
+      font-size: 1.02rem;
+      line-height: 1.65;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      resize: none;
+      outline: none;
+      transition: var(--transition);
+      box-sizing: border-box;
+    }
+
+    #ocrResultText:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+    }
+
+    #ocrWordPreview {
+      flex: 1;
+      height: 100%;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 24px 32px;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 13pt;
+      line-height: 1.5;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      color: #000000;
+      box-sizing: border-box;
+    }
+
+    .ocr-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: 8px;
+      padding: 8px 16px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-card);
+      flex-shrink: 0;
+      scrollbar-width: none;
+    }
+
+    .ocr-modal-footer::-webkit-scrollbar {
+      display: none;
+    }
+
+    .ocr-modal-footer .btn {
+      padding: 6px 12px;
+      font-size: 0.84rem;
+      height: 34px;
+      white-space: nowrap;
+    }
+
+  </style>
+</head>
+<body class="clipboard-page-wrapper">
+
+  <!-- HEADER & NAVIGATION -->
+  <header class="header" id="header">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-logo">
+        <span class="logo-mark"><i class="fa-solid fa-code"></i></span>
+        <span class="logo-text">cuongtv<span class="accent-dot">.</span></span>
+      </a>
+
+      <nav class="nav-menu" id="navMenu">
+        <ul class="nav-list">
+          <li><a href="index.html" class="nav-link"><i class="fa-solid fa-house"></i> Trang chủ</a></li>
+          <li><a href="server.html" class="nav-link" style="color: #10b981; font-weight: 700;"><i class="fa-solid fa-server"></i> Home Server</a></li>
+          <li><a href="form.html" class="nav-link"><i class="fa-solid fa-id-card"></i> Khai báo</a></li>
+          <li><a href="clipboard.html" class="nav-link active" style="color:var(--primary); font-weight:700;"><i class="fa-regular fa-image"></i> Xem ảnh Clipboard</a></li>
+          <li><a href="login.html" class="nav-link"><i class="fa-solid fa-lock"></i> Khu vực riêng tư</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="themeToggle" class="theme-toggle" aria-label="Đổi giao diện">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="container" style="flex: 1; padding: 10px 16px 24px;">
+    <!-- 1. EMPTY / PASTE ZONE -->
+    <div class="paste-zone-card" id="pasteZoneCard">
+      <input type="file" id="fileInput" accept="image/*" style="display: none;" />
+      <div class="paste-icon">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+      </div>
+      <h2 class="paste-prompt-title">Dán hoặc Kéo thả ảnh vào đây</h2>
+      <p class="paste-prompt-desc">
+        Chụp màn hình (PrintScreen / Snipping Tool), rồi bấm <span class="clipboard-key-badge">Ctrl + V</span> để xem ngay lập tức mà không cần lưu vào máy.
+      </p>
+
+      <div class="paste-actions-row">
+        <button type="button" class="btn btn-primary" id="pasteFromClipboardBtn">
+          <i class="fa-regular fa-paste"></i> Dán Ảnh từ Clipboard
+        </button>
+        <button type="button" class="btn btn-secondary" id="browseFileBtn">
+          <i class="fa-regular fa-folder-open"></i> Chọn Ảnh từ Máy
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. VIEWER CONTAINER -->
+    <div class="viewer-container" id="viewerContainer">
+      <!-- TOOLBAR -->
+      <div class="viewer-toolbar">
+        <!-- ZOOM & TRANSFORM TOOLS -->
+        <div class="toolbar-group">
+          <button class="tool-btn icon-only" id="zoomOutBtn" title="Thu nhỏ (Cuộn chuột xuống)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <span class="zoom-level-badge" id="zoomBadge">100%</span>
+          <button class="tool-btn icon-only" id="zoomInBtn" title="Phóng to (Cuộn chuột lên)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button class="tool-btn" id="zoomResetBtn" title="Kích thước gốc 100%"><i class="fa-solid fa-expand"></i> 1:1</button>
+          <button class="tool-btn icon-only" id="fitScreenBtn" title="Vừa khít khung xem"><i class="fa-solid fa-compress"></i></button>
+
+          <div class="toolbar-divider"></div>
+
+          <button class="tool-btn icon-only" id="rotateLeftBtn" title="Xoay trái 90°"><i class="fa-solid fa-rotate-left"></i></button>
+          <button class="tool-btn icon-only" id="rotateRightBtn" title="Xoay phải 90°"><i class="fa-solid fa-rotate-right"></i></button>
+          <button class="tool-btn icon-only" id="flipHBtn" title="Lật ngang"><i class="fa-solid fa-arrows-left-right"></i></button>
+          <button class="tool-btn icon-only" id="flipVBtn" title="Lật dọc"><i class="fa-solid fa-arrows-up-down"></i></button>
+          <button class="tool-btn icon-only" id="fullscreenBtn" title="Toàn màn hình"><i class="fa-solid fa-maximize"></i></button>
+        </div>
+
+        <!-- ACTION TOOLS -->
+        <div class="toolbar-group">
+          <button class="tool-btn" id="cropOcrBtn" style="background: rgba(16, 185, 129, 0.14); color: #10b981; border-color: rgba(16, 185, 129, 0.4); font-weight: 700;" title="Khoanh vùng một đoạn chữ trên ảnh để quét riêng vùng đó"><i class="fa-solid fa-crop-simple"></i> Quét Vùng Chọn</button>
+          <span class="crop-toolbar-hint" id="cropToolbarHint"><i class="fa-solid fa-arrow-pointer"></i> Kéo chuột khoanh vùng | ESC để hủy</span>
+          <button class="tool-btn" id="ocrBtn" style="background: rgba(99, 102, 241, 0.12); color: var(--accent); border-color: rgba(99, 102, 241, 0.35); font-weight: 700;" title="Chuyển chữ toàn bộ ảnh thành văn bản (AI OCR)"><i class="fa-solid fa-wand-magic-sparkles"></i> Lấy chữ toàn ảnh</button>
+
+          <div class="toolbar-divider"></div>
+
+          <button class="tool-btn icon-only" id="copyImgBtn" title="Sao chép ảnh vào bộ nhớ tạm (Ctrl + C)"><i class="fa-regular fa-copy"></i></button>
+          <button class="tool-btn icon-only" id="openNewTabBtn" title="Mở ảnh trong tab mới"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+          <button class="tool-btn icon-only" id="downloadBtn" title="Tải ảnh về máy"><i class="fa-solid fa-download"></i></button>
+          <button class="tool-btn primary" id="uploadDriveBtn" title="Lưu thẳng vào Google Drive của bạn"><i class="fa-brands fa-google-drive"></i> Drive</button>
+          <button class="tool-btn danger icon-only" id="clearImgBtn" title="Đổi ảnh mới (Xóa)"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+      </div>
+
+      <!-- VIEWPORT STAGE -->
+      <div class="viewer-stage" id="viewerStage">
+        <!-- Crop Overlay & Selection Box (Không còn banner che ảnh) -->
+        <div class="crop-overlay" id="cropOverlay">
+          <div class="crop-box" id="cropBox">
+            <span class="crop-box-badge" id="cropBoxBadge">0 × 0 px</span>
+          </div>
+          <div class="crop-actions-bar" id="cropActionsBar">
+            <button type="button" class="crop-act-btn primary" id="doCropOcrBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Quét Chữ Vùng Này</button>
+            <button type="button" class="crop-act-btn secondary" id="clearCropSelectionBtn"><i class="fa-solid fa-rotate-left"></i> Chọn lại</button>
+          </div>
+        </div>
+
+        <div class="viewer-img-wrapper" id="viewerWrapper">
+          <img id="mainImage" src="" alt="Clipboard Image" />
+        </div>
+      </div>
+
+      <!-- FINE ROTATION SLIDER BAR -->
+      <div class="viewer-rotate-bar" id="viewerRotateBar">
+        <div class="rotate-controls-wrap">
+          <span class="rotate-bar-label"><i class="fa-solid fa-arrows-spin" style="color: var(--primary);"></i> Xoay góc nhỏ:</span>
+          <button type="button" class="rotate-step-btn" id="rotateMinusBtn" title="Xoay trái -0.5°">-0.5°</button>
+          <input type="range" id="fineRotateSlider" min="-45" max="45" step="0.5" value="0" class="fine-rotate-slider" title="Kéo để xoay tinh chỉnh góc nhỏ (-45° đến +45°)" />
+          <button type="button" class="rotate-step-btn" id="rotatePlusBtn" title="Xoay phải +0.5°">+0.5°</button>
+          <span class="rotate-angle-badge" id="rotateAngleBadge">0.0°</span>
+          <button type="button" class="rotate-reset-btn" id="rotateResetBtn" title="Đặt lại góc xoay về 0°"><i class="fa-solid fa-arrow-rotate-left"></i> Về 0°</button>
+        </div>
+        <div class="rotate-hint-text">
+          <span><i class="fa-regular fa-compass"></i> Kéo thanh trượt để xoay thẳng ảnh/tài liệu bị nghiêng trước khi quét chữ</span>
+        </div>
+      </div>
+
+      <!-- STATUS & INFO BAR -->
+      <div class="viewer-infobar">
+        <div class="info-tags">
+          <div class="info-tag-item"><i class="fa-solid fa-arrows-left-right-to-line"></i> Độ phân giải: <strong id="infoDimensions">0 × 0 px</strong></div>
+          <div class="info-tag-item"><i class="fa-regular fa-file"></i> Dung lượng: <strong id="infoFileSize">0 KB</strong></div>
+          <div class="info-tag-item"><i class="fa-solid fa-tag"></i> Định dạng: <strong id="infoMime">PNG</strong></div>
+        </div>
+        <div class="info-hints">
+          <span><i class="fa-regular fa-lightbulb"></i> Mẹo: Nhấn Ctrl + V mọi lúc để dán ảnh mới | Giữ chuột để kéo rê ảnh | Cuộn chuột để phóng to/thu nhỏ</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- OCR MODAL -->
+  <div class="ocr-modal-backdrop" id="ocrModalBackdrop"></div>
+  <div class="ocr-modal" id="ocrModal">
+    <div class="ocr-modal-header">
+      <div class="ocr-modal-title">
+        <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--primary);"></i>
+        <h3>Chuyển Chữ Trong Ảnh Thành Text (AI OCR)</h3>
+        <span id="ocrTargetBadge" style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700; border: 1px solid rgba(99, 102, 241, 0.3); background: rgba(99, 102, 241, 0.1); color: var(--accent); margin-left: 8px;">
+          <i class="fa-regular fa-image"></i> Toàn bộ ảnh
+        </span>
+      </div>
+      <button class="ocr-close-btn" id="closeOcrBtn" aria-label="Đóng">&times;</button>
+    </div>
+    
+    <div class="ocr-modal-body">
+      <!-- 1. SLIM COMBINED TOOLBAR (1 Single Row) -->
+      <div class="ocr-slim-toolbar">
+        <div class="ocr-slim-group">
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);"><i class="fa-solid fa-microchip"></i> Bộ máy:</span>
+          <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; cursor: pointer; color: var(--primary); font-weight: 700;">
+            <input type="radio" name="ocrEngine" id="engineGoogle" value="google" checked />
+            <span><i class="fa-brands fa-google"></i> Google Drive OCR (100%)</span>
+          </label>
+          <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 0.82rem; cursor: pointer; color: var(--text-muted); font-weight: 600;">
+            <input type="radio" name="ocrEngine" id="engineTesseract" value="tesseract" />
+            <span><i class="fa-solid fa-laptop"></i> Offline AI</span>
+          </label>
+
+          <div style="width: 1px; height: 16px; background: var(--border-color); margin: 0 4px;"></div>
+
+          <div style="display: inline-flex; align-items: center; gap: 5px;">
+            <label for="ocrLangSelect" style="color: var(--text-muted); font-size: 0.82rem;"><i class="fa-solid fa-language"></i></label>
+            <select id="ocrLangSelect" class="ocr-select" style="height: 28px; font-size: 0.8rem;">
+              <option value="vie+eng" selected>Tiếng Việt + Anh</option>
+              <option value="vie">Chỉ Tiếng Việt</option>
+              <option value="eng">Chỉ Tiếng Anh</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn btn-primary" id="startOcrBtn" style="padding: 4px 10px; font-size: 0.8rem; height: 28px; gap: 4px;">
+            <i class="fa-solid fa-rotate-right"></i> Quét lại
+          </button>
+        </div>
+
+        <div class="ocr-progress-status" id="ocrStatusText" style="margin: 0; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Sẵn sàng</div>
+      </div>
+
+      <!-- 2. SLIM PROGRESS LINE -->
+      <div class="ocr-progress-container" id="ocrProgressContainer" style="display: none;">
+        <div class="ocr-progress-bar-bg">
+          <div class="ocr-progress-bar-fill" id="ocrProgressBar"></div>
+        </div>
+      </div>
+
+      <!-- 3. MAXIMIZED TEXT AREA -->
+      <div class="ocr-result-section">
+        <div class="ocr-result-header">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 0.84rem;"><strong>Văn bản nhận diện:</strong></span>
+            <div class="ocr-view-tabs" style="display: flex; background: var(--bg-hover); padding: 2px; border-radius: var(--radius-sm);">
+              <button type="button" id="btnViewEditor" class="ocr-tab-btn active" style="padding: 2px 10px; font-size: 0.78rem; border: none; border-radius: var(--radius-sm); cursor: pointer; background: var(--bg-surface); color: var(--text-main); font-weight: 600;">Văn bản sửa</button>
+              <button type="button" id="btnViewWordPreview" class="ocr-tab-btn" style="padding: 2px 10px; font-size: 0.78rem; border: none; border-radius: var(--radius-sm); cursor: pointer; background: transparent; color: var(--text-muted); font-weight: 600;">Xem định dạng Word</button>
+            </div>
+          </div>
+          <span class="ocr-stats-badge" id="ocrStatsBadge">0 ký tự | 0 từ</span>
+        </div>
+        <textarea id="ocrResultText" placeholder="Kết quả chữ trích xuất từ ảnh sẽ xuất hiện tại đây... Bạn có thể chỉnh sửa văn bản trực tiếp."></textarea>
+        <div id="ocrWordPreview" style="display: none;"></div>
+      </div>
+    </div>
+
+    <div class="ocr-modal-footer">
+      <button type="button" class="btn btn-primary" id="copyForWordBtn" title="Sao chép chuẩn định dạng để dán sang Microsoft Word (giữ nguyên đoạn văn, bảng biểu, gạch đầu dòng)" style="background: #2b579a; border-color: #2b579a; color: #fff;">
+        <i class="fa-solid fa-file-word"></i> Sao Chép Cho Word
+      </button>
+      <button type="button" class="btn btn-secondary" id="downloadWordBtn" title="Tải văn bản về dạng file Word (.doc)">
+        <i class="fa-solid fa-download"></i> Tải Word (.doc)
+      </button>
+      <button type="button" class="btn btn-secondary" id="copyOcrTextBtn" title="Sao chép dạng văn bản thuần">
+        <i class="fa-regular fa-copy"></i> Sao chép Text
+      </button>
+      <button type="button" class="btn btn-secondary" id="downloadOcrTxtBtn" title="Tải file .TXT">
+        <i class="fa-regular fa-file-lines"></i> File .TXT
+      </button>
+      <button type="button" class="btn btn-secondary" id="saveOcrToNotesBtn" title="Lưu vào Sổ tay riêng tư">
+        <i class="fa-solid fa-book-bookmark"></i> Lưu Ghi Chú
+      </button>
+      <button type="button" class="btn btn-secondary" id="googleLensBtn" style="color: #ea4335;" title="Mở trang Google Lens để quét chữ bằng AI của Google">
+        <i class="fa-brands fa-google"></i> Google Lens ↗
+      </button>
+      <button type="button" class="btn btn-secondary" id="closeOcrFooterBtn">Đóng</button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast-popup" id="toastPopup">
+    <i class="fa-solid fa-circle-check" id="toastIcon" style="color: var(--success); font-size: 1.2rem;"></i>
+    <span id="toastMessage">Thông báo</span>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <a href="index.html" class="brand-logo footer-logo">
+          <span class="logo-mark"><i class="fa-solid fa-code"></i></span>
+          <span class="logo-text">cuongtv<span class="accent-dot">.</span></span>
+        </a>
+        <p class="footer-copy">
+          Trình xem và xử lý ảnh clipboard trực tiếp trên trình duyệt.
+        </p>
+      </div>
+      <div class="footer-right">
+        <div class="footer-socials">
+          <a href="https://github.com/Cuong1012" target="_blank" rel="noopener" title="GitHub"><i class="fa-brands fa-github"></i></a>
+          <a href="login.html" title="Đăng nhập riêng tư"><i class="fa-solid fa-lock"></i></a>
+          <a href="#" class="back-to-top" title="Lên đầu trang"><i class="fa-solid fa-arrow-up"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="js/auth.js"></script>
+  <script>
+    // ==========================================
+    // THEME MANAGEMENT
+    // ==========================================
+    const themeToggleBtn = document.getElementById('themeToggle');
+    const savedTheme = localStorage.getItem('devlog-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const nextTheme = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      localStorage.setItem('devlog-theme', nextTheme);
+      updateThemeIcon(nextTheme);
+    });
+
+    function updateThemeIcon(theme) {
+      const icon = themeToggleBtn.querySelector('i');
+      if (theme === 'dark') {
+        icon.className = 'fa-solid fa-sun';
+      } else {
+        icon.className = 'fa-solid fa-moon';
+      }
+    }
+
+    // ==========================================
+    // TOAST UTILITY
+    // ==========================================
+    const toastPopup = document.getElementById('toastPopup');
+    const toastIcon = document.getElementById('toastIcon');
+    const toastMessage = document.getElementById('toastMessage');
+    let toastTimeout = null;
+
+    function showToast(msg, type = 'success') {
+      clearTimeout(toastTimeout);
+      toastMessage.textContent = msg;
+      toastPopup.className = 'toast-popup show ' + type;
+      if (type === 'success') {
+        toastIcon.className = 'fa-solid fa-circle-check';
+        toastIcon.style.color = 'var(--success)';
+      } else {
+        toastIcon.className = 'fa-solid fa-triangle-exclamation';
+        toastIcon.style.color = 'var(--danger)';
+      }
+      toastTimeout = setTimeout(() => {
+        toastPopup.classList.remove('show');
+      }, 3500);
+    }
+
+    // ==========================================
+    // STATE & DOM ELEMENTS
+    // ==========================================
+    const pasteZoneCard = document.getElementById('pasteZoneCard');
+    const viewerContainer = document.getElementById('viewerContainer');
+    const fileInput = document.getElementById('fileInput');
+    const pasteFromClipboardBtn = document.getElementById('pasteFromClipboardBtn');
+    const browseFileBtn = document.getElementById('browseFileBtn');
+
+    const viewerStage = document.getElementById('viewerStage');
+    const viewerWrapper = document.getElementById('viewerWrapper');
+    const mainImage = document.getElementById('mainImage');
+
+    const zoomBadge = document.getElementById('zoomBadge');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+    const fitScreenBtn = document.getElementById('fitScreenBtn');
+
+    const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+    const rotateRightBtn = document.getElementById('rotateRightBtn');
+    const flipHBtn = document.getElementById('flipHBtn');
+    const flipVBtn = document.getElementById('flipVBtn');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    const copyImgBtn = document.getElementById('copyImgBtn');
+    const openNewTabBtn = document.getElementById('openNewTabBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const uploadDriveBtn = document.getElementById('uploadDriveBtn');
+    const clearImgBtn = document.getElementById('clearImgBtn');
+
+    const infoDimensions = document.getElementById('infoDimensions');
+    const infoFileSize = document.getElementById('infoFileSize');
+    const infoMime = document.getElementById('infoMime');
+
+    let currentBlob = null;
+    let currentDataUrl = '';
+    let naturalWidth = 0;
+    let naturalHeight = 0;
+    let currentFileName = 'clipboard_image.png';
+
+    let scale = 1;
+    let posX = 0;
+    let posY = 0;
+    let rotation = 0;
+    let baseRotation = 0;
+    let fineAngle = 0;
+    let flipH = 1;
+    let flipV = 1;
+
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+
+    // ==========================================
+    // IMAGE LOADING & PROCESSING
+    // ==========================================
+    function loadImageFromFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        showToast('Tệp được chọn không phải là định dạng hình ảnh hợp lệ!', 'error');
+        return;
+      }
+
+      currentBlob = file;
+      currentFileName = file.name || ('clipboard_' + Date.now() + '.png');
+      infoMime.textContent = file.type.replace('image/', '').toUpperCase();
+      infoFileSize.textContent = formatBytes(file.size);
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        currentDataUrl = e.target.result;
+        mainImage.src = currentDataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    mainImage.onload = () => {
+      naturalWidth = mainImage.naturalWidth;
+      naturalHeight = mainImage.naturalHeight;
+      infoDimensions.textContent = naturalWidth + ' × ' + naturalHeight + ' px';
+
+      pasteZoneCard.style.display = 'none';
+      viewerContainer.style.display = 'flex';
+
+      resetTransformations();
+      fitToScreen();
+      showToast('Đã mở ảnh thành công! Bạn có thể zoom, xoay hoặc lưu ảnh.');
+    };
+
+    function resetTransformations() {
+      scale = 1;
+      posX = 0;
+      posY = 0;
+      baseRotation = 0;
+      fineAngle = 0;
+      rotation = 0;
+      flipH = 1;
+      flipV = 1;
+      if (typeof fineRotateSlider !== 'undefined' && fineRotateSlider) fineRotateSlider.value = 0;
+      if (typeof rotateAngleBadge !== 'undefined' && rotateAngleBadge) rotateAngleBadge.textContent = '0.0°';
+      applyTransform();
+    }
+
+    function applyTransform() {
+      viewerWrapper.style.transform = 'translate(' + posX + 'px, ' + posY + 'px) scale(' + scale + ') rotate(' + rotation + 'deg) scaleX(' + flipH + ') scaleY(' + flipV + ')';
+      zoomBadge.textContent = Math.round(scale * 100) + '%';
+    }
+
+    function fitToScreen() {
+      if (!naturalWidth || !naturalHeight) return;
+      const stageRect = viewerStage.getBoundingClientRect();
+      const padding = 40;
+      const availW = stageRect.width - padding;
+      const availH = stageRect.height - padding;
+
+      const scaleW = availW / naturalWidth;
+      const scaleH = availH / naturalHeight;
+      scale = Math.min(scaleW, scaleH, 1);
+      posX = 0;
+      posY = 0;
+      applyTransform();
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // ==========================================
+    // 1. GLOBAL CLIPBOARD PASTE (CTRL + V)
+    // ==========================================
+    function handleGlobalPaste(e) {
+      let file = null;
+      const clipboardData = e.clipboardData || window.clipboardData;
+      if (!clipboardData) return;
+
+      // 1. Check items (Standard modern browsers / Snipping tool / PrintScreen)
+      if (clipboardData.items) {
+        for (let i = 0; i < clipboardData.items.length; i++) {
+          const item = clipboardData.items[i];
+          if (item.type && item.type.indexOf('image') !== -1) {
+            file = item.getAsFile();
+            break;
+          }
+        }
+      }
+
+      // 2. Check files (Copied file from Explorer or browser)
+      if (!file && clipboardData.files && clipboardData.files.length > 0) {
+        for (let i = 0; i < clipboardData.files.length; i++) {
+          const f = clipboardData.files[i];
+          if (f.type && f.type.indexOf('image') !== -1) {
+            file = f;
+            break;
+          }
+        }
+      }
+
+      if (file) {
+        e.preventDefault();
+        loadImageFromFile(file);
+      }
+    }
+
+    document.addEventListener('paste', handleGlobalPaste);
+    window.addEventListener('paste', handleGlobalPaste);
+
+    // Button: Dán từ Clipboard (Clipboard API)
+    pasteFromClipboardBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.read) {
+          showToast('Trình duyệt chưa bật Clipboard API. Hãy bấm Ctrl + V để dán ngay!', 'error');
+          return;
+        }
+
+        const clipboardItems = await navigator.clipboard.read();
+        let found = false;
+
+        for (const item of clipboardItems) {
+          const imageType = item.types.find(t => t.startsWith('image/'));
+          if (imageType) {
+            const blob = await item.getType(imageType);
+            loadImageFromFile(blob);
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          showToast('Không tìm thấy hình ảnh nào trong Clipboard! Hãy chụp màn hình hoặc Copy ảnh trước.', 'error');
+        }
+      } catch (err) {
+        showToast('Vui lòng cho phép quyền truy cập Clipboard hoặc nhấn tổ hợp phím Ctrl + V!', 'error');
+      }
+    });
+
+    // ==========================================
+    // 2. FILE SELECTION (CHỌN TỪ MÁY)
+    // ==========================================
+    browseFileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    pasteZoneCard.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        loadImageFromFile(e.target.files[0]);
+        fileInput.value = '';
+      }
+    });
+
+    // ==========================================
+    // 3. DRAG & DROP
+    // ==========================================
+    ['dragenter', 'dragover'].forEach(name => {
+      window.addEventListener(name, (e) => {
+        e.preventDefault();
+        pasteZoneCard.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+      window.addEventListener(name, (e) => {
+        e.preventDefault();
+        pasteZoneCard.classList.remove('dragover');
+      });
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          const f = e.dataTransfer.files[i];
+          if (f.type && f.type.startsWith('image/')) {
+            loadImageFromFile(f);
+            break;
+          }
+        }
+      }
+    });
+
+    // ==========================================
+    // 4. VIEWER INTERACTIONS (PAN & ZOOM)
+    // ==========================================
+    viewerStage.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (isCropMode) return;
+      isDragging = true;
+      startX = e.clientX - posX;
+      startY = e.clientY - posY;
+      viewerStage.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isCropMode) return;
+      if (!isDragging) return;
+      posX = e.clientX - startX;
+      posY = e.clientY - startY;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        viewerStage.style.cursor = 'grab';
+      }
+    });
+
+    // Mouse Wheel Zoom
+    viewerStage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newScale = scale * zoomFactor;
+
+      if (newScale >= 0.05 && newScale <= 30) {
+        scale = newScale;
+        applyTransform();
+      }
+    }, { passive: false });
+
+    // Zoom Buttons
+    zoomInBtn.addEventListener('click', () => {
+      scale = Math.min(scale * 1.25, 30);
+      applyTransform();
+    });
+
+    zoomOutBtn.addEventListener('click', () => {
+      scale = Math.max(scale * 0.8, 0.05);
+      applyTransform();
+    });
+
+    zoomResetBtn.addEventListener('click', () => {
+      scale = 1;
+      posX = 0;
+      posY = 0;
+      applyTransform();
+    });
+
+    fitScreenBtn.addEventListener('click', fitToScreen);
+
+    // Rotate & Flip Buttons
+    rotateLeftBtn.addEventListener('click', () => {
+      baseRotation = (baseRotation - 90) % 360;
+      rotation = baseRotation + fineAngle;
+      applyTransform();
+    });
+
+    rotateRightBtn.addEventListener('click', () => {
+      baseRotation = (baseRotation + 90) % 360;
+      rotation = baseRotation + fineAngle;
+      applyTransform();
+    });
+
+    // Fine Rotation Slider Controls
+    const fineRotateSlider = document.getElementById('fineRotateSlider');
+    const rotateAngleBadge = document.getElementById('rotateAngleBadge');
+    const rotateMinusBtn = document.getElementById('rotateMinusBtn');
+    const rotatePlusBtn = document.getElementById('rotatePlusBtn');
+    const rotateResetBtn = document.getElementById('rotateResetBtn');
+
+    function updateFineRotation(val) {
+      fineAngle = Math.round(parseFloat(val) * 10) / 10;
+      rotation = baseRotation + fineAngle;
+      fineRotateSlider.value = fineAngle;
+      rotateAngleBadge.textContent = (fineAngle > 0 ? '+' : '') + fineAngle.toFixed(1) + '°';
+      applyTransform();
+    }
+
+    if (fineRotateSlider) {
+      fineRotateSlider.addEventListener('input', (e) => {
+        updateFineRotation(e.target.value);
+      });
+    }
+
+    if (rotateMinusBtn) {
+      rotateMinusBtn.addEventListener('click', () => {
+        const nextVal = Math.max(-45, fineAngle - 0.5);
+        updateFineRotation(nextVal);
+      });
+    }
+
+    if (rotatePlusBtn) {
+      rotatePlusBtn.addEventListener('click', () => {
+        const nextVal = Math.min(45, fineAngle + 0.5);
+        updateFineRotation(nextVal);
+      });
+    }
+
+    if (rotateResetBtn) {
+      rotateResetBtn.addEventListener('click', () => {
+        updateFineRotation(0);
+      });
+    }
+
+    flipHBtn.addEventListener('click', () => {
+      flipH *= -1;
+      applyTransform();
+    });
+
+    flipVBtn.addEventListener('click', () => {
+      flipV *= -1;
+      applyTransform();
+    });
+
+    // Fullscreen
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        viewerStage.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // ==========================================
+    // 5. ACTIONS: COPY, DOWNLOAD, DRIVE, CLEAR
+    // ==========================================
+    copyImgBtn.addEventListener('click', async () => {
+      if (!currentBlob) return;
+      try {
+        if (!navigator.clipboard || !window.ClipboardItem) {
+          showToast('Trình duyệt không hỗ trợ sao chép ảnh tự động.', 'error');
+          return;
+        }
+
+        const item = new ClipboardItem({ [currentBlob.type]: currentBlob });
+        await navigator.clipboard.write([item]);
+        showToast('Đã sao chép hình ảnh vào bộ nhớ tạm (Clipboard)!');
+      } catch (err) {
+        showToast('Lỗi sao chép ảnh: ' + err.message, 'error');
+      }
+    });
+
+    openNewTabBtn.addEventListener('click', () => {
+      if (!currentBlob && !currentDataUrl) return;
+      try {
+        if (currentBlob) {
+          const blobUrl = URL.createObjectURL(currentBlob);
+          window.open(blobUrl, '_blank');
+        } else {
+          const win = window.open();
+          win.document.write('<iframe src="' + currentDataUrl + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
+        }
+        showToast('Đã mở ảnh trong tab mới!');
+      } catch (err) {
+        showToast('Lỗi mở ảnh: ' + err.message, 'error');
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!currentDataUrl) return;
+      const a = document.createElement('a');
+      a.href = currentDataUrl;
+      a.download = currentFileName || ('cuongtv_image_' + Date.now() + '.png');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('Đang tải ảnh về máy tính...');
+    });
+
+    uploadDriveBtn.addEventListener('click', async () => {
+      if (!currentBlob) return;
+
+      const origText = uploadDriveBtn.innerHTML;
+      uploadDriveBtn.disabled = true;
+      uploadDriveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang tải lên Drive...';
+
+      try {
+        const res = await DevLogAuth.uploadFileToDrive(currentBlob);
+        if (res.success) {
+          showToast('Đã lưu ảnh thành công vào Google Drive của bạn!');
+        } else {
+          showToast('Lỗi tải lên Drive: ' + res.message, 'error');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối tới Google Drive: ' + err.message, 'error');
+      } finally {
+        uploadDriveBtn.disabled = false;
+        uploadDriveBtn.innerHTML = origText;
+      }
+    });
+
+    clearImgBtn.addEventListener('click', () => {
+      currentBlob = null;
+      currentDataUrl = '';
+      mainImage.src = '';
+      fileInput.value = '';
+
+      viewerContainer.style.display = 'none';
+      pasteZoneCard.style.display = 'block';
+      showToast('Đã dọn khung xem. Bạn có thể bấm Ctrl + V để dán ảnh mới!');
+    });
+
+    // ==========================================
+    // 6. OCR & CROP REGION SELECTION
+    // ==========================================
+    const ocrBtn = document.getElementById('ocrBtn');
+    const cropOcrBtn = document.getElementById('cropOcrBtn');
+    const cropToolbarHint = document.getElementById('cropToolbarHint');
+    const cropOverlay = document.getElementById('cropOverlay');
+    const cropBox = document.getElementById('cropBox');
+    const cropBoxBadge = document.getElementById('cropBoxBadge');
+    const cropActionsBar = document.getElementById('cropActionsBar');
+    const doCropOcrBtn = document.getElementById('doCropOcrBtn');
+    const clearCropSelectionBtn = document.getElementById('clearCropSelectionBtn');
+    const ocrTargetBadge = document.getElementById('ocrTargetBadge');
+
+    const ocrModal = document.getElementById('ocrModal');
+    const ocrModalBackdrop = document.getElementById('ocrModalBackdrop');
+    const closeOcrBtn = document.getElementById('closeOcrBtn');
+    const closeOcrFooterBtn = document.getElementById('closeOcrFooterBtn');
+    const ocrLangSelect = document.getElementById('ocrLangSelect');
+    const startOcrBtn = document.getElementById('startOcrBtn');
+    const ocrProgressContainer = document.getElementById('ocrProgressContainer');
+    const ocrStatusText = document.getElementById('ocrStatusText');
+    const ocrProgressBar = document.getElementById('ocrProgressBar');
+    const ocrResultText = document.getElementById('ocrResultText');
+    const ocrStatsBadge = document.getElementById('ocrStatsBadge');
+    const copyOcrTextBtn = document.getElementById('copyOcrTextBtn');
+    const downloadOcrTxtBtn = document.getElementById('downloadOcrTxtBtn');
+    const saveOcrToNotesBtn = document.getElementById('saveOcrToNotesBtn');
+
+    let isTesseractLoaded = false;
+    let isCropMode = false;
+    let isSelectingCrop = false;
+    let cropStartX = 0, cropStartY = 0;
+    let activeOcrBlob = null;
+    let activeCropDims = null;
+
+    // --- CROP MODE HANDLERS ---
+    function enterCropMode() {
+      if (!currentBlob) {
+        showToast('Vui lòng mở hoặc dán ảnh trước khi chọn vùng quét!', 'error');
+        return;
+      }
+      isDragging = false;
+      isCropMode = true;
+      if (cropToolbarHint) cropToolbarHint.style.display = 'inline-flex';
+      cropOverlay.classList.add('active');
+      cropBox.style.display = 'none';
+      cropActionsBar.style.display = 'none';
+      viewerStage.style.cursor = 'crosshair';
+      cropOcrBtn.style.background = 'rgba(239, 68, 68, 0.16)';
+      cropOcrBtn.style.color = '#ef4444';
+      cropOcrBtn.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+      cropOcrBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Hủy Khoanh Vùng';
+      showToast('Kéo chuột để khoanh vùng chữ cần quét!');
+    }
+
+    function exitCropMode() {
+      isDragging = false;
+      isCropMode = false;
+      isSelectingCrop = false;
+      if (cropToolbarHint) cropToolbarHint.style.display = 'none';
+      cropOverlay.classList.remove('active');
+      cropBox.style.display = 'none';
+      cropActionsBar.style.display = 'none';
+      viewerStage.style.cursor = 'grab';
+      cropOcrBtn.style.background = 'rgba(16, 185, 129, 0.14)';
+      cropOcrBtn.style.color = '#10b981';
+      cropOcrBtn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      cropOcrBtn.innerHTML = '<i class="fa-solid fa-crop-simple"></i> Quét Vùng Chọn';
+    }
+
+    cropOcrBtn.addEventListener('click', () => {
+      if (isCropMode) {
+        exitCropMode();
+      } else {
+        enterCropMode();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isCropMode) {
+        exitCropMode();
+      }
+    });
+
+    // Mousedown on overlay: start selection box
+    cropOverlay.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('#cropActionsBar')) return;
+      e.stopPropagation();
+      e.preventDefault();
+      isDragging = false;
+      
+      const stageRect = viewerStage.getBoundingClientRect();
+      isSelectingCrop = true;
+      cropStartX = e.clientX - stageRect.left;
+      cropStartY = e.clientY - stageRect.top;
+
+      cropBox.style.left = cropStartX + 'px';
+      cropBox.style.top = cropStartY + 'px';
+      cropBox.style.width = '0px';
+      cropBox.style.height = '0px';
+      cropBox.style.display = 'block';
+      cropActionsBar.style.display = 'none';
+    });
+
+    // Mousemove: expand selection box
+    window.addEventListener('mousemove', (e) => {
+      if (!isSelectingCrop) return;
+      const stageRect = viewerStage.getBoundingClientRect();
+      const currentX = Math.max(0, Math.min(e.clientX - stageRect.left, stageRect.width));
+      const currentY = Math.max(0, Math.min(e.clientY - stageRect.top, stageRect.height));
+
+      const left = Math.min(cropStartX, currentX);
+      const top = Math.min(cropStartY, currentY);
+      const width = Math.abs(currentX - cropStartX);
+      const height = Math.abs(currentY - cropStartY);
+
+      cropBox.style.left = left + 'px';
+      cropBox.style.top = top + 'px';
+      cropBox.style.width = width + 'px';
+      cropBox.style.height = height + 'px';
+
+      cropBoxBadge.textContent = Math.round(width) + ' × ' + Math.round(height) + ' px';
+    });
+
+    // Mouseup: finalize selection box
+    window.addEventListener('mouseup', (e) => {
+      if (!isSelectingCrop) return;
+      isSelectingCrop = false;
+
+      const boxW = parseFloat(cropBox.style.width) || 0;
+      const boxH = parseFloat(cropBox.style.height) || 0;
+
+      if (boxW < 20 || boxH < 20) {
+        cropBox.style.display = 'none';
+        cropActionsBar.style.display = 'none';
+        return;
+      }
+
+      // Position action bar right under the selection box
+      const boxLeft = parseFloat(cropBox.style.left) || 0;
+      const boxTop = parseFloat(cropBox.style.top) || 0;
+      const stageRect = viewerStage.getBoundingClientRect();
+
+      let barTop = boxTop + boxH + 10;
+      if (barTop + 45 > stageRect.height) {
+        barTop = Math.max(10, boxTop - 46);
+      }
+      let barLeft = Math.max(10, Math.min(boxLeft, stageRect.width - 260));
+
+      cropActionsBar.style.left = barLeft + 'px';
+      cropActionsBar.style.top = barTop + 'px';
+      cropActionsBar.style.display = 'flex';
+    });
+
+    clearCropSelectionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cropBox.style.display = 'none';
+      cropActionsBar.style.display = 'none';
+    });
+
+    // Function to slice image from selection box
+    function getCroppedBlob() {
+      return new Promise((resolve) => {
+        if (!mainImage || !naturalWidth || !naturalHeight) return resolve(null);
+
+        const boxRect = cropBox.getBoundingClientRect();
+        const stageRect = viewerStage.getBoundingClientRect();
+
+        // High quality native slice when no rotation and no flip
+        if ((rotation % 360 === 0) && flipH === 1 && flipV === 1) {
+          const imgRect = mainImage.getBoundingClientRect();
+          const scaleX = naturalWidth / imgRect.width;
+          const scaleY = naturalHeight / imgRect.height;
+
+          let sx = (boxRect.left - imgRect.left) * scaleX;
+          let sy = (boxRect.top - imgRect.top) * scaleY;
+          let sw = boxRect.width * scaleX;
+          let sh = boxRect.height * scaleY;
+
+          const x1 = Math.max(0, Math.min(sx, naturalWidth));
+          const y1 = Math.max(0, Math.min(sy, naturalHeight));
+          const x2 = Math.max(0, Math.min(sx + sw, naturalWidth));
+          const y2 = Math.max(0, Math.min(sy + sh, naturalHeight));
+
+          const cw = Math.round(x2 - x1);
+          const ch = Math.round(y2 - y1);
+
+          if (cw < 10 || ch < 10) return resolve(null);
+
+          const canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(mainImage, x1, y1, cw, ch, 0, 0, cw, ch);
+          activeCropDims = { width: cw, height: ch };
+          canvas.toBlob((blob) => resolve(blob), 'image/png');
+          return;
+        }
+
+        // Rotated / flipped slice: render transformed view with high DPI
+        const dpr = Math.max(2, window.devicePixelRatio || 1);
+        const stageW = stageRect.width;
+        const stageH = stageRect.height;
+        const fullCanvas = document.createElement('canvas');
+        fullCanvas.width = Math.round(stageW * dpr);
+        fullCanvas.height = Math.round(stageH * dpr);
+        const ctx = fullCanvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.scale(dpr, dpr);
+
+        ctx.translate((stageW / 2) + posX, (stageH / 2) + posY);
+        ctx.scale(scale, scale);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(flipH, flipV);
+
+        ctx.drawImage(mainImage, -naturalWidth / 2, -naturalHeight / 2, naturalWidth, naturalHeight);
+
+        const cropW = Math.round(boxRect.width * dpr);
+        const cropH = Math.round(boxRect.height * dpr);
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = cropW;
+        cropCanvas.height = cropH;
+        const cropCtx = cropCanvas.getContext('2d');
+
+        const cropX = Math.round((boxRect.left - stageRect.left) * dpr);
+        const cropY = Math.round((boxRect.top - stageRect.top) * dpr);
+
+        cropCtx.drawImage(fullCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+        activeCropDims = { width: Math.round(boxRect.width), height: Math.round(boxRect.height) };
+        cropCanvas.toBlob((blob) => resolve(blob), 'image/png');
+      });
+    }
+
+    doCropOcrBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const croppedBlob = await getCroppedBlob();
+      if (!croppedBlob) {
+        showToast('Vùng chọn nằm ngoài ảnh hoặc quá nhỏ!', 'error');
+        return;
+      }
+      activeOcrBlob = croppedBlob;
+      exitCropMode();
+      openOcrModal(true);
+    });
+
+    // --- OCR MODAL HANDLERS ---
+    function openOcrModal(isFromCrop = false) {
+      if (!currentBlob && !activeOcrBlob) {
+        showToast('Vui lòng mở hình ảnh trước khi trích xuất chữ!', 'error');
+        return;
+      }
+
+      if (!isFromCrop) {
+        activeOcrBlob = currentBlob;
+        activeCropDims = null;
+        ocrTargetBadge.innerHTML = `<i class="fa-regular fa-image"></i> Toàn bộ ảnh (${naturalWidth || 0} × ${naturalHeight || 0} px)`;
+        ocrTargetBadge.style.color = 'var(--accent)';
+        ocrTargetBadge.style.background = 'rgba(99, 102, 241, 0.1)';
+        ocrTargetBadge.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+      } else {
+        const w = activeCropDims ? activeCropDims.width : Math.round(parseFloat(cropBox.style.width) || 0);
+        const h = activeCropDims ? activeCropDims.height : Math.round(parseFloat(cropBox.style.height) || 0);
+        ocrTargetBadge.innerHTML = `<i class="fa-solid fa-crop-simple"></i> Vùng chọn (${w} × ${h} px)`;
+        ocrTargetBadge.style.color = '#10b981';
+        ocrTargetBadge.style.background = 'rgba(16, 185, 129, 0.12)';
+        ocrTargetBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+      }
+
+      ocrModal.classList.add('active');
+      ocrModalBackdrop.classList.add('active');
+
+      // Always clear previous result and auto-run when a new scan is opened
+      ocrResultText.value = '';
+      updateOcrStats();
+      runOcr();
+    }
+
+    function closeOcrModal() {
+      ocrModal.classList.remove('active');
+      ocrModalBackdrop.classList.remove('active');
+    }
+
+    ocrBtn.addEventListener('click', () => openOcrModal(false));
+    closeOcrBtn.addEventListener('click', closeOcrModal);
+    closeOcrFooterBtn.addEventListener('click', closeOcrModal);
+    ocrModalBackdrop.addEventListener('click', closeOcrModal);
+
+    function updateOcrStats() {
+      const txt = ocrResultText.value.trim();
+      const chars = txt.length;
+      const words = txt ? txt.split(/\s+/).length : 0;
+      ocrStatsBadge.textContent = `${chars} ký tự | ${words} từ`;
+    }
+
+    ocrResultText.addEventListener('input', updateOcrStats);
+
+    function loadTesseract() {
+      return new Promise((resolve, reject) => {
+        if (window.Tesseract) {
+          resolve(window.Tesseract);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        script.onload = () => {
+          isTesseractLoaded = true;
+          resolve(window.Tesseract);
+        };
+        script.onerror = () => reject(new Error('Không thể tải thư viện nhận diện Tesseract.js. Vui lòng kiểm tra kết nối mạng!'));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function runOcr() {
+      const targetBlob = activeOcrBlob || currentBlob;
+      if (!targetBlob) return;
+
+      const selectedEngine = document.querySelector('input[name="ocrEngine"]:checked')?.value || 'google';
+
+      ocrProgressContainer.style.display = 'block';
+      startOcrBtn.disabled = true;
+
+      // ==========================================
+      // ENGINE 1: GOOGLE DRIVE OCR (CHUẨN 100%)
+      // ==========================================
+      if (selectedEngine === 'google') {
+        if (!DevLogAuth.isCloudConnected()) {
+          showToast('Chưa kết nối Google Drive! Đang chuyển sang Tesseract AI...', 'error');
+          runTesseractOcr();
+          return;
+        }
+
+        ocrProgressBar.style.width = '20%';
+        ocrStatusText.innerHTML = '<i class="fa-solid fa-cloud-arrow-up fa-bounce"></i> Đang gửi ảnh tới Google Drive OCR...';
+
+        try {
+          ocrProgressBar.style.width = '50%';
+          ocrStatusText.innerHTML = '<i class="fa-brands fa-google fa-spin"></i> AI của Google đang phân tích và nhận diện chữ tiếng Việt...';
+
+          const res = await DevLogAuth.ocrImageWithGoogleDrive(targetBlob, ocrLangSelect.value);
+          ocrProgressBar.style.width = '90%';
+
+          if (res.success && res.text) {
+            ocrResultText.value = res.text;
+            updateOcrStats();
+            ocrProgressBar.style.width = '100%';
+            ocrStatusText.innerHTML = '<span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> Google Drive OCR hoàn tất! Độ chính xác 100%.</span>';
+            showToast('Đã trích xuất chữ bằng Google Drive OCR thành công!');
+          } else {
+            // Tự động chuyển Tesseract AI nếu Google Drive bị nghẽn tần suất quét liên tục
+            if (res.message && (res.message.includes('rate limit') || res.message.includes('exceeded'))) {
+              ocrStatusText.innerHTML = '<span style="color: #f59e0b;"><i class="fa-solid fa-hourglass-half"></i> Google Drive tạm giới hạn tần suất quét liên tục (chờ 1-2 phút). Đang tự động quét bằng Tesseract AI...</span>';
+              showToast('Google Drive tạm giới hạn tần suất. Đang chuyển sang Tesseract AI...', 'info');
+              runTesseractOcr();
+              return;
+            }
+            ocrStatusText.innerHTML = `<span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> ${res.message || 'Lỗi Google OCR'}</span>`;
+            showToast('Lỗi Google Drive OCR: ' + res.message, 'error');
+          }
+        } catch (err) {
+          if (err.message && (err.message.includes('rate limit') || err.message.includes('exceeded'))) {
+            ocrStatusText.innerHTML = '<span style="color: #f59e0b;"><i class="fa-solid fa-hourglass-half"></i> Đang tự động quét bằng Tesseract AI...</span>';
+            runTesseractOcr();
+            return;
+          }
+          ocrStatusText.innerHTML = `<span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> Lỗi kết nối Google Drive: ${err.message}</span>`;
+          showToast('Lỗi kết nối Google Drive OCR: ' + err.message, 'error');
+        } finally {
+          startOcrBtn.disabled = false;
+        }
+        return;
+      }
+
+      // ==========================================
+      // ENGINE 2: TESSERACT AI (OFFLINE)
+      // ==========================================
+      runTesseractOcr();
+    }
+
+    async function runTesseractOcr() {
+      const targetBlob = activeOcrBlob || currentBlob;
+      if (!targetBlob) return;
+
+      ocrProgressBar.style.width = '10%';
+      ocrStatusText.textContent = 'Đang tải mô hình Tesseract AI...';
+
+      try {
+        const Tesseract = await loadTesseract();
+        const lang = ocrLangSelect.value;
+
+        ocrStatusText.textContent = 'Đang phân tích hình ảnh và nhận diện văn bản...';
+
+        const res = await Tesseract.recognize(targetBlob, lang, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const pct = Math.round((m.progress || 0) * 100);
+              ocrProgressBar.style.width = `${pct}%`;
+              ocrStatusText.textContent = `Đang quét và đọc văn bản: ${pct}%...`;
+            } else if (m.status === 'loading tesseract core') {
+              ocrStatusText.textContent = 'Đang nạp bộ xử lý WebAssembly...';
+            } else if (m.status && m.status.includes('traineddata')) {
+              ocrStatusText.textContent = 'Đang tải gói dữ liệu ngôn ngữ...';
+            }
+          }
+        });
+
+        const extractedText = (res.data && res.data.text) ? res.data.text.trim() : '';
+        ocrResultText.value = extractedText || '(Không phát hiện chữ nào rõ ràng trong hình ảnh này)';
+        updateOcrStats();
+
+        ocrProgressBar.style.width = '100%';
+        ocrStatusText.innerHTML = '<span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> Hoàn tất trích xuất văn bản!</span>';
+        showToast('Đã trích xuất chữ trong ảnh thành công!');
+      } catch (err) {
+        ocrStatusText.innerHTML = `<span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> Lỗi: ${err.message}</span>`;
+        showToast('Lỗi nhận diện chữ: ' + err.message, 'error');
+      } finally {
+        startOcrBtn.disabled = false;
+      }
+    }
+
+    startOcrBtn.addEventListener('click', runOcr);
+
+    // Sao chép kết quả text
+    copyOcrTextBtn.addEventListener('click', async () => {
+      const text = ocrResultText.value.trim();
+      if (!text) {
+        showToast('Chưa có nội dung văn bản để sao chép!', 'error');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Đã sao chép văn bản vào bộ nhớ tạm!');
+      } catch (e) {
+        ocrResultText.select();
+        document.execCommand('copy');
+        showToast('Đã sao chép văn bản!');
+      }
+    });
+
+    // Tải file .txt
+    downloadOcrTxtBtn.addEventListener('click', () => {
+      const text = ocrResultText.value.trim();
+      if (!text) {
+        showToast('Chưa có nội dung văn bản để tải về!', 'error');
+        return;
+      }
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `ocr_extracted_${Date.now()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('Đang tải file văn bản .txt về máy...');
+    });
+
+    // Lưu thẳng vào Ghi chú riêng tư
+    saveOcrToNotesBtn.addEventListener('click', () => {
+      const text = ocrResultText.value.trim();
+      if (!text) {
+        showToast('Chưa có nội dung văn bản để lưu!', 'error');
+        return;
+      }
+      const notes = DevLogAuth.getPrivateNotes();
+      const timeStr = new Date().toLocaleString('vi-VN');
+      const newNote = {
+        id: Date.now(),
+        title: `Trích xuất chữ từ ảnh (${timeStr})`,
+        category: 'snippet',
+        categoryName: 'Mã & Ghi chú',
+        date: new Date().toISOString().slice(0, 10),
+        content: text
+      };
+      notes.unshift(newNote);
+      DevLogAuth.savePrivateNotes(notes);
+
+      if (DevLogAuth.isCloudConnected()) {
+        DevLogAuth.addNoteToCloud(newNote);
+      }
+      showToast('Đã lưu văn bản vào Sổ tay Ghi chú riêng tư của bạn!');
+    });
+
+
+    // ==========================================
+    // WORD FORMATTING & RICH EXPORT
+    // ==========================================
+    const copyForWordBtn = document.getElementById('copyForWordBtn');
+    const downloadWordBtn = document.getElementById('downloadWordBtn');
+    const googleLensBtn = document.getElementById('googleLensBtn');
+    const btnViewEditor = document.getElementById('btnViewEditor');
+    const btnViewWordPreview = document.getElementById('btnViewWordPreview');
+    const ocrWordPreview = document.getElementById('ocrWordPreview');
+
+    // Toggle view between raw text editor and Word rich preview
+    btnViewEditor.addEventListener('click', () => {
+      btnViewEditor.style.background = 'var(--bg-surface)';
+      btnViewEditor.style.color = 'var(--text-main)';
+      btnViewWordPreview.style.background = 'transparent';
+      btnViewWordPreview.style.color = 'var(--text-muted)';
+      ocrResultText.style.display = 'block';
+      ocrWordPreview.style.display = 'none';
+    });
+
+    btnViewWordPreview.addEventListener('click', () => {
+      btnViewWordPreview.style.background = 'var(--bg-surface)';
+      btnViewWordPreview.style.color = 'var(--text-main)';
+      btnViewEditor.style.background = 'transparent';
+      btnViewEditor.style.color = 'var(--text-muted)';
+      ocrResultText.style.display = 'none';
+      ocrWordPreview.style.display = 'block';
+      ocrWordPreview.innerHTML = convertTextToWordHtml(ocrResultText.value);
+    });
+
+    function escapeHtmlString(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function formatInline(text) {
+      let escaped = escapeHtmlString(text);
+      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      return escaped;
+    }
+
+    // Convert raw OCR lines into structured Word HTML (Paragraphs, Headings, Lists, Tables)
+    function convertTextToWordHtml(rawText) {
+      if (!rawText || !rawText.trim()) return "<p style=\"color: #64748b; font-style: italic; font-family: 'Times New Roman', Times, serif;\">Chưa có văn bản.</p>";
+      const lines = rawText.split(/\r?\n/);
+      let html = '';
+      let inList = false;
+      let inNumberedList = false;
+      let inTable = false;
+
+      const fontStyle = "font-family: 'Times New Roman', Times, serif; color: #000000;";
+
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) {
+          if (inList) { html += '</ul>'; inList = false; }
+          if (inNumberedList) { html += '</ol>'; inNumberedList = false; }
+          if (inTable) { html += '</table>'; inTable = false; }
+          continue;
+        }
+
+        // 1. Table Detection (tab-separated or pipe | separated)
+        if (line.includes('\t') || (line.includes('|') && line.split('|').length >= 3)) {
+          if (!inTable) {
+            if (inList) { html += '</ul>'; inList = false; }
+            if (inNumberedList) { html += '</ol>'; inNumberedList = false; }
+            html += `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10pt 0; border: 1px solid #000000; ${fontStyle} font-size: 13pt;">`;
+            inTable = true;
+          }
+          const cells = line.split(line.includes('\t') ? '\t' : '|').map(c => c.trim()).filter(c => c.length > 0);
+          html += '<tr>' + cells.map(c => `<td style="padding: 6pt; border: 1px solid #000000; color: #000000; font-family: 'Times New Roman', Times, serif;">${formatInline(c)}</td>`).join('') + '</tr>';
+          continue;
+        } else if (inTable) {
+          html += '</table>';
+          inTable = false;
+        }
+
+        // 2. Bullet Lists (-, *, •)
+        const bulletMatch = line.match(/^[-*•]\s+(.*)$/);
+        if (bulletMatch) {
+          if (inNumberedList) { html += '</ol>'; inNumberedList = false; }
+          if (!inList) { html += `<ul style="margin: 4pt 0 8pt; padding-left: 24pt; ${fontStyle} font-size: 13pt;">`; inList = true; }
+          html += `<li style="margin-bottom: 3pt; ${fontStyle} font-size: 13pt;">${formatInline(bulletMatch[1])}</li>`;
+          continue;
+        }
+
+        // 3. Numbered Lists (1., 2., a), b))
+        const numMatch = line.match(/^(\d+|[a-zA-Z])[\.\)]\s+(.*)$/);
+        if (numMatch) {
+          if (inList) { html += '</ul>'; inList = false; }
+          if (!inNumberedList) { html += `<ol style="margin: 4pt 0 8pt; padding-left: 24pt; ${fontStyle} font-size: 13pt;">`; inNumberedList = true; }
+          html += `<li style="margin-bottom: 3pt; ${fontStyle} font-size: 13pt;">${formatInline(numMatch[2])}</li>`;
+          continue;
+        }
+
+        if (inList) html += '</ul>';
+        if (inNumberedList) html += '</ol>';
+
+        // 4. Headings & Title detection (Chữ đen, Đậm, Times New Roman, 13-14pt)
+        if (line.length < 80 && (line === line.toUpperCase() && /[A-ZÀ-Ỹ]/.test(line) && line.length > 4 || /^(CHƯƠNG|BÀI|ĐIỀU|MỤC|PHẦN|LƯU Ý|THÔNG BÁO|CỘNG HÒA)/i.test(line))) {
+          html += `<h3 style="margin: 12pt 0 4pt; color: #000000; font-family: 'Times New Roman', Times, serif; font-size: 14pt; font-weight: bold;">${formatInline(line)}</h3>`;
+        } else if (line.endsWith(':') && line.length < 60) {
+          html += `<p style="margin: 8pt 0 3pt; font-weight: bold; color: #000000; font-family: 'Times New Roman', Times, serif; font-size: 13pt;">${formatInline(line)}</p>`;
+        } else {
+          // Standard Paragraph
+          html += `<p style="margin: 0 0 6pt; font-size: 13pt; line-height: 1.4; color: #000000; font-family: 'Times New Roman', Times, serif;">${formatInline(line)}</p>`;
+        }
+      }
+
+      if (inList) html += '</ul>';
+      if (inNumberedList) html += '</ol>';
+      if (inTable) html += '</table>';
+
+      return html;
+    }
+
+    // 1. Sao chép chuẩn cho Word (Rich Text Clipboard)
+    copyForWordBtn.addEventListener('click', async () => {
+      const text = ocrResultText.value.trim();
+      if (!text) {
+        showToast('Chưa có nội dung để sao chép!', 'error');
+        return;
+      }
+
+      const formattedHtml = convertTextToWordHtml(text);
+      const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family: 'Times New Roman', Times, serif; font-size: 13pt; line-height: 1.4; color: #000000;">${formattedHtml}</body></html>`;
+
+      try {
+        const item = new ClipboardItem({
+          'text/html': new Blob([fullHtml], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' })
+        });
+        await navigator.clipboard.write([item]);
+        showToast('Đã sao chép chuẩn Word! Hãy mở Word và bấm Ctrl + V.');
+      } catch (err) {
+        // Fallback
+        showToast('Trình duyệt chưa hỗ trợ sao chép Rich Text: ' + err.message, 'error');
+      }
+    });
+
+    // 2. Tải file Word (.doc)
+    downloadWordBtn.addEventListener('click', () => {
+      const text = ocrResultText.value.trim();
+      if (!text) {
+        showToast('Chưa có nội dung để tải file Word!', 'error');
+        return;
+      }
+
+      const formattedHtml = convertTextToWordHtml(text);
+      const wordDocument = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>Tài liệu Word OCR</title>
+          <style>
+            @page { size: A4; margin: 2cm; }
+            body { font-family: 'Times New Roman', Times, serif; font-size: 13pt; line-height: 1.4; color: #000000; }
+            h1, h2, h3 { font-family: 'Times New Roman', Times, serif; color: #000000; font-size: 14pt; }
+            p { margin: 0 0 6pt; color: #000000; font-family: 'Times New Roman', Times, serif; font-size: 13pt; }
+            table { border-collapse: collapse; width: 100%; margin: 10pt 0; border: 1px solid #000000; font-family: 'Times New Roman', Times, serif; color: #000000; }
+            td, th { border: 1px solid #000000; padding: 6pt; color: #000000; font-family: 'Times New Roman', Times, serif; }
+            ul, ol, li { color: #000000; font-family: 'Times New Roman', Times, serif; font-size: 13pt; margin: 4pt 0 8pt; }
+          </style>
+        </head>
+        <body>
+          ${formattedHtml}
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob(['\ufeff' + wordDocument], { type: 'application/msword;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `tai_lieu_ocr_${Date.now()}.doc`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('Đang tải file Word (.doc) về máy tính...');
+    });
+
+    // 3. Mở Google Lens
+    googleLensBtn.addEventListener('click', async () => {
+      const targetBlob = activeOcrBlob || currentBlob;
+      if (!targetBlob) return;
+      try {
+        const item = new ClipboardItem({ [targetBlob.type]: targetBlob });
+        await navigator.clipboard.write([item]);
+        window.open('https://lens.google.com/', '_blank');
+        showToast('Đã copy ảnh vào Clipboard! Hãy bấm Ctrl + V trên Google Lens.');
+      } catch (err) {
+        window.open('https://lens.google.com/', '_blank');
+      }
+    });
+
+  </script>
+</body>
+</html>
