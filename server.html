@@ -1792,28 +1792,64 @@
     }
 
     async function initCloudflareUrl() {
-      try {
-        const res = await fetch('/api/ewelink/tunnel/url', { cache: 'no-store' });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.url) {
-            const pill = document.getElementById('cfPill');
-            const link = document.getElementById('cfUrlLink');
-            const btn = document.getElementById('cfCopyBtn');
-            if (pill && link) {
-              pill.style.display = 'flex';
-              link.href = data.url + '/server.html';
-              link.textContent = 'Link 4G Online';
-              if (btn) btn.onclick = () => copyText(data.url + '/server.html', btn);
+      let cloudUrl = null;
+      const isLocalHost = window.location.hostname === '192.168.31.100' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      // 1. Thử lấy trực tiếp từ API eWeLink trên server nếu đang chạy nội bộ
+      if (isLocalHost) {
+        try {
+          const res = await fetch('/api/ewelink/tunnel/url', { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.url) {
+              cloudUrl = data.url;
+            } else if (data.restarting) {
+              const link = document.getElementById('cfUrlLink');
+              if (link) link.textContent = 'Đang tạo link mới...';
+              setTimeout(initCloudflareUrl, 6000);
             }
-          } else if (data.restarting) {
-            const link = document.getElementById('cfUrlLink');
-            if (link) link.textContent = 'Đang tạo link mới...';
-            setTimeout(initCloudflareUrl, 6000);
           }
+        } catch (e) {
+          console.warn('Local tunnel check error', e);
         }
-      } catch (e) {
-        console.warn('CF tunnel check error', e);
+      }
+
+      // 2. Nếu chạy trên GitHub Pages hoặc chưa lấy được từ local, đọc từ server-status.json
+      if (!cloudUrl) {
+        try {
+          const res = await fetch('server-status.json?t=' + Date.now(), { cache: 'no-store' });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.cloudUrl) {
+              cloudUrl = data.cloudUrl;
+            }
+          }
+        } catch (e) {
+          console.warn('server-status.json check error', e);
+        }
+      }
+
+      // 3. Cập nhật giao diện thanh IP và nút bấm 4G Cloud
+      const pill = document.getElementById('cfPill');
+      const link = document.getElementById('cfUrlLink');
+      const btn = document.getElementById('cfCopyBtn');
+      if (cloudUrl && pill && link) {
+        pill.style.display = 'flex';
+        link.href = cloudUrl + '/server.html';
+        const displayHost = cloudUrl.replace('https://', '');
+        link.textContent = displayHost.length > 28 ? displayHost.substring(0, 25) + '...' : displayHost;
+        link.title = 'Mở Home Server qua 4G: ' + cloudUrl;
+        if (btn) btn.onclick = () => copyText(cloudUrl + '/server.html', btn);
+
+        if (!isLocalHost) {
+          // Khi mở trên GitHub Pages, cập nhật link NAS FileBrowser trực tiếp sang Cloudflare Tunnel
+          const nasLinks = document.querySelectorAll('a[href*="/nas"]');
+          nasLinks.forEach(a => {
+            if (!a.href.startsWith('http://192.168.31.100')) {
+              a.href = cloudUrl + '/nas';
+            }
+          });
+        }
       }
     }
 

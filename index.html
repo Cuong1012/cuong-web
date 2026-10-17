@@ -1,278 +1,1515 @@
 <!DOCTYPE html>
-<html lang="vi" data-theme="light">
+<html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Góc Nhìn & Chia Sẻ | Blog Cá Nhân</title>
-  <meta name="description" content="Trang blog cá nhân chia sẻ về lập trình, công nghệ, tư duy phát triển và cuộc sống thường nhật." />
-  
-  <!-- Google Fonts: Plus Jakarta Sans -->
+  <title>Step Into Wonder | Cuongtv Portal & Home Server</title>
+  <meta name="description" content="Step Into Wonder — An immersive parallax scroll landing experience & personal home server portal." />
+
+  <!-- Google Fonts: Viaoda Libre & Imprima -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Viaoda+Libre&family=Imprima&display=swap" rel="stylesheet" />
 
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/style.css" />
+  <!-- Preload Critical Parallax Assets for Instant 60/120Hz Silkiness -->
+  <link rel="preload" as="image" href="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/image_1_vdzwae-464f73.webp" />
+  <link rel="preload" as="image" href="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/curtain_left_znkmva-f9eb4c.webp" />
+  <link rel="preload" as="image" href="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/curtain_right_paeyym-9fa947.webp" />
+  <link rel="preload" as="image" href="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/image_2_gkcdlx-5f252f.webp" />
+  <link rel="preload" as="image" href="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/bottom_clouds_xskut6-c56b42.webp" />
+
+  <style>
+    /* ========================================================
+       GLOBAL & RESET
+       ======================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      width: 100%;
+      background-color: #0a0608;
+      color: #ffffff;
+      font-family: 'Imprima', sans-serif;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Cross-Document View Transitions */
+    @media (prefers-reduced-motion: no-preference) {
+      @view-transition {
+        navigation: auto;
+      }
+      ::view-transition-old(root) {
+        animation: 0.3s ease-out both fade-out;
+      }
+      ::view-transition-new(root) {
+        animation: 0.35s ease-out both fade-in;
+      }
+    }
+    @keyframes fade-out { to { opacity: 0; } }
+    @keyframes fade-in { from { opacity: 0; } }
+
+    @keyframes bobUp {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+
+    /* ========================================================
+       PARALLAX CONTAINER (480vh scroll track)
+       ======================================================== */
+    .parallax-container {
+      height: 480vh;
+      position: relative;
+      width: 100%;
+      background: #0a0608;
+    }
+
+    .sticky-viewport {
+      position: sticky;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background: #0a0608;
+    }
+
+    /* Layer Base */
+    .layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      will-change: transform, opacity;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      user-select: none;
+    }
+
+    /* Layer 1: World Background (z 0) - Enlarged to prevent mouse parallax black edge leaks */
+    .layer-world {
+      z-index: 0;
+      width: 108%;
+      height: 108%;
+      top: -4%;
+      left: -4%;
+      object-fit: cover;
+      transform-origin: 50% 50%;
+    }
+
+    /* Cosmic Glow overlay between world and clouds */
+    .layer-world-glow {
+      z-index: 1;
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 45%, rgba(139, 92, 246, 0.18) 0%, rgba(236, 72, 153, 0.12) 40%, transparent 75%);
+      pointer-events: none;
+    }
+
+    /* Layer 2: Bottom Clouds (z 10) */
+    .layer-clouds {
+      z-index: 10;
+      top: auto;
+      bottom: -6px;
+      left: -2%;
+      width: 104%;
+      height: auto;
+      transform-origin: 50% 100%;
+      pointer-events: none;
+    }
+
+    /* Layer 3: Arc Card Slider (z 25) - Placed above clouds and bottom fade for maximum clarity */
+    .layer-arc-slider {
+      z-index: 25;
+      position: absolute;
+      left: 50%;
+      bottom: 80px;
+      transform: translateX(-50%);
+      width: 100%;
+      height: 380px;
+      pointer-events: auto;
+    }
+    @media (max-width: 767px) {
+      .layer-arc-slider {
+        bottom: 50px;
+        height: 280px;
+      }
+    }
+
+    /* Layer 4: Portal Frame (z 15) */
+    .layer-portal {
+      z-index: 15;
+      object-fit: cover;
+      transform-origin: 52% 38%;
+      pointer-events: none;
+    }
+
+    /* Layer 5: Bottom Fade (z 16) */
+    .layer-bottom-fade {
+      z-index: 16;
+      top: auto;
+      bottom: 0;
+      height: 42%;
+      background: linear-gradient(to top, rgba(10, 6, 8, 0.45) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* Layer 6 & 7: Curtains Left & Right (z 16) */
+    .layer-curtain-left {
+      z-index: 16;
+      object-fit: cover;
+      object-position: right center;
+      transform-origin: left center;
+      pointer-events: none;
+    }
+
+    .layer-curtain-right {
+      z-index: 16;
+      object-fit: cover;
+      object-position: left center;
+      transform-origin: right center;
+      pointer-events: none;
+    }
+
+    /* Layer 8: Top Fade (z 45) */
+    .layer-top-fade {
+      z-index: 45;
+      height: 42vh;
+      background: linear-gradient(to bottom, rgba(10, 6, 8, 0.6) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* ========================================================
+       NAVIGATION (z 50)
+       ======================================================== */
+    .nav-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 22px 48px;
+    }
+    @media (max-width: 767px) {
+      .nav-bar {
+        padding: 18px 20px;
+      }
+    }
+
+    .nav-group {
+      display: flex;
+      align-items: center;
+      gap: 36px;
+    }
+    @media (max-width: 767px) {
+      .nav-group {
+        gap: 16px;
+      }
+    }
+
+    .nav-link {
+      font-family: 'Imprima', sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #ffffff;
+      opacity: 0.9;
+      transition: opacity 0.2s, color 0.2s;
+    }
+    .nav-link:hover {
+      opacity: 1;
+      color: #f3cdd6;
+    }
+    @media (max-width: 767px) {
+      .nav-link {
+        font-size: 11px;
+      }
+      .nav-desktop-only {
+        display: none !important;
+      }
+    }
+
+    .star-logo {
+      width: 28px;
+      height: 28px;
+      display: inline-block;
+      vertical-align: middle;
+      cursor: pointer;
+      transition: transform 0.4s ease;
+    }
+    .star-logo:hover {
+      transform: rotate(72deg) scale(1.1);
+    }
+
+    /* ========================================================
+       SCENE 1 UI (z 20)
+       ======================================================== */
+    .scene1-ui {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .s1-desktop-hero {
+      position: absolute;
+      top: 46%;
+      left: 60px;
+      max-width: 460px;
+      transform: translateY(-50%);
+      color: #ffffff;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.8), 0 1px 4px rgba(0,0,0,0.95);
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(-40%);
+      transition: opacity 0.9s ease 0.3s, transform 0.9s ease 0.3s;
+    }
+
+    .s1-heading-sub {
+      font-family: 'Viaoda Libre', serif;
+      font-size: clamp(32px, 4.5vw, 54px);
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+    }
+    .s1-heading-sub .accent-arrow {
+      color: rgba(255, 220, 180, 0.7);
+      font-size: 0.8em;
+      margin: 0 4px;
+    }
+    .s1-heading-sub .italic-into {
+      font-style: italic;
+    }
+
+    .s1-heading-main {
+      font-family: 'Viaoda Libre', serif;
+      font-size: clamp(50px, 7.5vw, 88px);
+      line-height: 0.9;
+      letter-spacing: -0.02em;
+      margin-bottom: 20px;
+    }
+
+    .s1-subtext {
+      font-size: 18px;
+      line-height: 1.7;
+      color: rgba(255, 245, 235, 0.88);
+      max-width: 320px;
+      margin-bottom: 24px;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.8);
+    }
+
+    /* Desktop Cards on Right */
+    .s1-desktop-cards {
+      position: absolute;
+      right: 40px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(-40%);
+      transition: opacity 0.9s ease 0.55s, transform 0.9s ease 0.55s;
+    }
+
+    .s1-card {
+      width: 158px;
+      height: 158px;
+      border-radius: 28px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+      display: block;
+    }
+    .s1-card:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    .s1-card-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 60%;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+    }
+
+    .s1-card-content {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 2;
+    }
+
+    .play-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.95);
+      color: #1a0a10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      padding-left: 2px;
+    }
+
+    .card-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    .number-card-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(30, 15, 25, 0.9), rgba(15, 8, 12, 0.95));
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .number-val {
+      font-family: 'Viaoda Libre', serif;
+      font-size: 32px;
+      color: #f3cdd6;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .number-lbl {
+      font-size: 12px;
+      color: rgba(255,255,255,0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Slider dots */
+    .s1-slider-dots {
+      position: absolute;
+      bottom: 40px;
+      left: 60px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.9s ease 0.8s;
+    }
+    .dot {
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.35);
+    }
+    .dot.active {
+      width: 28px;
+      background: rgba(255,255,255,0.9);
+    }
+    .dot.inactive {
+      width: 14px;
+    }
+
+    /* Scroll Cue */
+    .s1-scroll-cue {
+      position: absolute;
+      bottom: 36px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.9s ease 0.9s;
+    }
+    .scroll-cue-text {
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.6);
+    }
+    .scroll-cue-circle {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 12px;
+      animation: bobUp 1.8s ease-in-out infinite;
+    }
+
+    /* Mobile Scene 1 */
+    @media (max-width: 1099px) {
+      .s1-desktop-hero {
+        top: 48%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        width: calc(100% - 48px);
+      }
+      .s1-subtext {
+        margin: 0 auto 20px;
+      }
+      .s1-desktop-cards {
+        display: none;
+      }
+      .s1-slider-dots {
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 28px;
+      }
+      .s1-scroll-cue {
+        display: none;
+      }
+    }
+
+    /* UI Visible Trigger */
+    .ui-visible .s1-desktop-hero,
+    .ui-visible .s1-desktop-cards,
+    .ui-visible .s1-slider-dots,
+    .ui-visible .s1-scroll-cue {
+      opacity: 1;
+      transform: translateY(-50%);
+    }
+    .ui-visible .s1-slider-dots {
+      transform: none;
+    }
+    @media (max-width: 1099px) {
+      .ui-visible .s1-desktop-hero {
+        transform: translate(-50%, -50%);
+      }
+      .ui-visible .s1-slider-dots {
+        transform: translateX(-50%);
+      }
+    }
+
+    /* ========================================================
+       SCENE 2 UI (z 46)
+       ======================================================== */
+    .scene2-ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 46;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      margin-top: 10vh;
+      pointer-events: none;
+      padding: 0 24px;
+    }
+    @media (max-width: 767px) {
+      .scene2-ui {
+        margin-top: 7vh;
+      }
+    }
+
+    .s2-heading {
+      font-family: 'Viaoda Libre', serif;
+      font-size: clamp(36px, 6.5vw, 76px);
+      letter-spacing: 0.03em;
+      line-height: 1.05;
+      color: #ffffff;
+      text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6);
+      margin-bottom: 12px;
+    }
+    @media (max-width: 767px) {
+      .s2-heading {
+        font-size: clamp(26px, 8vw, 42px);
+      }
+    }
+
+    .s2-subtext {
+      font-family: 'Imprima', sans-serif;
+      font-size: 19px;
+      line-height: 1.6;
+      letter-spacing: -0.01em;
+      max-width: 500px;
+      color: rgba(255, 255, 255, 0.88);
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7);
+    }
+    @media (max-width: 767px) {
+      .s2-subtext {
+        font-size: 14px;
+        max-width: 280px;
+      }
+    }
+
+    .s2-scroll-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      padding: 8px 18px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 9999px;
+      font-size: 13px;
+      color: #f3cdd6;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      animation: pulseGlow 2.5s infinite;
+      pointer-events: auto;
+    }
+
+    /* ========================================================
+       ARC CARD SLIDER COMPONENT (z 25)
+       ======================================================== */
+    .arc-card {
+      position: absolute;
+      width: 220px;
+      height: 230px;
+      border-radius: 26px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.2);
+      padding: 24px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: box-shadow 0.3s ease;
+      will-change: transform, opacity;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      backdrop-filter: blur(4px);
+    }
+    .arc-card:hover {
+      box-shadow: 0 18px 55px rgba(243, 205, 214, 0.45), 0 0 0 2px #ffffff;
+    }
+    @media (max-width: 767px) {
+      .arc-card {
+        width: 160px;
+        height: 175px;
+        border-radius: 18px;
+        padding: 16px 14px 14px;
+      }
+    }
+
+    .arc-card-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .arc-card-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      background: rgba(58, 37, 48, 0.12);
+      color: rgba(58, 37, 48, 0.85);
+      border: 1px solid rgba(58, 37, 48, 0.2);
+    }
+    @media (max-width: 767px) {
+      .arc-card-tag {
+        font-size: 9px;
+        padding: 2px 6px;
+      }
+    }
+
+    .arc-card-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(80, 50, 60, 0.35);
+      color: rgba(80, 50, 60, 0.7);
+      font-size: 10px;
+      font-family: 'Imprima', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .arc-card-title {
+      font-family: 'Viaoda Libre', serif;
+      font-size: 26px;
+      color: #3a2530;
+      line-height: 1.1;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    @media (max-width: 767px) {
+      .arc-card-title {
+        font-size: 19px;
+      }
+    }
+
+    .arc-card-desc {
+      font-family: 'Imprima', sans-serif;
+      font-size: 13px;
+      line-height: 1.35;
+      color: rgba(58, 37, 48, 0.75);
+    }
+    @media (max-width: 767px) {
+      .arc-card-desc {
+        font-size: 11px;
+        line-height: 1.25;
+      }
+    }
+
+    /* ========================================================
+       SECTION 3: HỆ SINH THÁI DỊCH VỤ & TIỆN ÍCH (SEAMLESS FLOW)
+       Eliminates the end-of-scroll black void by naturally
+       continuing the experience into the full services portal!
+       ======================================================== */
+    .ecosystem-section {
+      position: relative;
+      background: radial-gradient(circle at 50% 0%, #170d18 0%, #0a0608 70%);
+      padding: 90px 24px 100px;
+      border-top: 1px solid rgba(243, 205, 214, 0.15);
+      z-index: 30;
+    }
+
+    .ecosystem-container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .ecosystem-header {
+      text-align: center;
+      max-width: 700px;
+      margin: 0 auto 50px;
+    }
+
+    .ecosystem-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 18px;
+      background: rgba(243, 205, 214, 0.12);
+      border: 1px solid rgba(243, 205, 214, 0.3);
+      border-radius: 9999px;
+      color: #f3cdd6;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .ecosystem-title {
+      font-family: 'Viaoda Libre', serif;
+      font-size: clamp(34px, 5vw, 54px);
+      line-height: 1.15;
+      color: #ffffff;
+      margin-bottom: 14px;
+    }
+
+    .ecosystem-desc {
+      font-size: 17px;
+      color: rgba(255, 255, 255, 0.75);
+      line-height: 1.6;
+    }
+
+    .ecosystem-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 28px;
+      margin-bottom: 70px;
+    }
+
+    .eco-card {
+      background: rgba(25, 14, 22, 0.65);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .eco-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #f3cdd6, #c3e3f4);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .eco-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(243, 205, 214, 0.4);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6);
+    }
+
+    .eco-card:hover::before {
+      opacity: 1;
+    }
+
+    .eco-card.featured-server {
+      border-color: rgba(16, 185, 129, 0.4);
+      background: rgba(16, 32, 26, 0.55);
+    }
+    .eco-card.featured-server::before {
+      background: linear-gradient(90deg, #10b981, #06b6d4);
+      opacity: 1;
+    }
+
+    .eco-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .eco-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+    }
+
+    .eco-badge {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .eco-title {
+      font-family: 'Viaoda Libre', serif;
+      font-size: 26px;
+      color: #ffffff;
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+
+    .eco-desc {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.72);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      flex-grow: 1;
+    }
+
+    .eco-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .eco-tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .eco-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.25s ease;
+      cursor: pointer;
+    }
+
+    .eco-btn-primary {
+      background: #f3cdd6;
+      color: #2b141e;
+    }
+    .eco-btn-primary:hover {
+      background: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(243, 205, 214, 0.4);
+    }
+
+    .eco-btn-server {
+      background: #10b981;
+      color: #ffffff;
+    }
+    .eco-btn-server:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+    }
+
+    .eco-btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .eco-btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: #f3cdd6;
+    }
+
+    /* Footer */
+    .ecosystem-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+    }
+    .footer-links a:hover {
+      color: #f3cdd6;
+    }
+  </style>
 </head>
 <body>
-  <!-- HEADER & NAVIGATION -->
-  <header class="header" id="header">
-    <div class="container nav-container">
-      <a href="#" class="brand-logo">
-        <span class="logo-mark"><i class="fa-solid fa-code"></i></span>
-        <span class="logo-text">cuongtv<span class="accent-dot">.</span></span>
-      </a>
 
-      <nav class="nav-menu" id="navMenu">
-        <ul class="nav-list">
-          <li><a href="#home" class="nav-link active">Trang chủ</a></li>
-          <li><a href="#articles" class="nav-link">Bài viết</a></li>
-          <li><a href="#about" class="nav-link">Về tôi</a></li>
-          <li><a href="server.html" class="nav-link" style="color: #10b981; font-weight: 700;"><i class="fa-solid fa-server"></i> Home Server</a></li>
-          <li><a href="form.html" class="nav-link" style="color:var(--primary); font-weight:700;"><i class="fa-solid fa-id-card"></i> Khai báo</a></li>
-          <li><a href="clipboard.html" class="nav-link"><i class="fa-regular fa-image"></i> Xem ảnh Clipboard</a></li>
-          <li><a href="image-to-pdf.html" class="nav-link" style="color: #ef4444; font-weight: 700;"><i class="fa-solid fa-file-pdf"></i> Ảnh sang PDF</a></li>
-          <li><a href="#newsletter" class="nav-link">Đăng ký</a></li>
-        </ul>
-      </nav>
+  <!-- ========================================================
+       PARALLAX CONTAINER (480vh scroll track)
+       ======================================================== -->
+  <div class="parallax-container" id="parallaxContainer">
+    <div class="sticky-viewport" id="stickyViewport">
 
-      <div class="nav-actions">
-        <!-- Private Portal Link -->
-        <a href="login.html" class="icon-btn" title="Khu vực riêng tư (Đăng nhập)" aria-label="Khu vực riêng tư">
-          <i class="fa-solid fa-lock"></i>
+      <!-- LAYER 1: World Background (z 0) -->
+      <img
+        src="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/image_2_gkcdlx-5f252f.webp"
+        alt="Dream World Background"
+        class="layer layer-world"
+        id="worldBg"
+      />
+      <div class="layer-world-glow"></div>
+
+      <!-- LAYER 2: Bottom Clouds (z 10) -->
+      <img
+        src="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/bottom_clouds_xskut6-c56b42.webp"
+        alt="Clouds"
+        class="layer layer-clouds"
+        id="bottomClouds"
+      />
+
+      <!-- LAYER 3: Arc Card Slider (z 12) -->
+      <div class="layer-arc-slider" id="arcCardSlider">
+        <!-- Rendered dynamically by Arc Slider Math -->
+      </div>
+
+      <!-- LAYER 4: Portal Frame (z 15) -->
+      <img
+        src="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/image_1_vdzwae-464f73.webp"
+        alt="Portal Frame"
+        class="layer layer-portal"
+        id="portalBg"
+      />
+
+      <!-- LAYER 5: Bottom Fade (z 16) -->
+      <div class="layer-bottom-fade"></div>
+
+      <!-- LAYER 6: Curtain Left (z 16) -->
+      <img
+        src="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/curtain_left_znkmva-f9eb4c.webp"
+        alt="Curtain Left"
+        class="layer layer-curtain-left"
+        id="curtainLeft"
+      />
+
+      <!-- LAYER 7: Curtain Right (z 16) -->
+      <img
+        src="https://plugin-assets.open-design.ai/plugins/dreamcore-landing/curtain_right_paeyym-9fa947.webp"
+        alt="Curtain Right"
+        class="layer layer-curtain-right"
+        id="curtainRight"
+      />
+
+      <!-- LAYER 8: Top Fade (z 45) -->
+      <div class="layer-top-fade"></div>
+
+      <!-- ========================================================
+           NAVIGATION (z 50)
+           ======================================================== -->
+      <header class="nav-bar">
+        <div class="nav-group">
+          <a href="server.html" class="nav-link" style="color: #a7f3d0;"><i class="fa-solid fa-server"></i> Home Server</a>
+          <a href="/nas" class="nav-link nav-desktop-only"><i class="fa-solid fa-folder-tree"></i> NAS Data</a>
+          <a href="image-to-pdf.html" class="nav-link nav-desktop-only">Scanner PDF</a>
+          <a href="clipboard.html" class="nav-link nav-desktop-only">Clipboard</a>
+        </div>
+
+        <!-- StarLogo -->
+        <a href="#top" title="Cuongtv Portal" aria-label="Portal Home">
+          <svg class="star-logo" viewBox="0 0 28 28" fill="none">
+            <path
+              d="M14 2l2.09 6.42H23l-5.45 3.96 2.09 6.42L14 14.84l-5.64 4.06 2.09-6.42L4.96 8.42h6.95L14 2z"
+              fill="#ffffff"
+              fill-opacity="0.9"
+            />
+            <circle cx="14" cy="24" r="1.5" fill="#ffffff" fill-opacity="0.6" />
+            <circle cx="6" cy="6" r="1" fill="#ffffff" fill-opacity="0.4" />
+            <circle cx="22" cy="6" r="1" fill="#ffffff" fill-opacity="0.4" />
+          </svg>
         </a>
 
-        <!-- Theme Toggle Button -->
-        <button id="themeToggle" class="icon-btn theme-toggle" aria-label="Chuyển chế độ giao diện" title="Chuyển chế độ Sáng / Tối">
-          <i class="fa-regular fa-moon dark-icon"></i>
-          <i class="fa-regular fa-sun light-icon"></i>
-        </button>
+        <div class="nav-group">
+          <a href="#ecosystem" class="nav-link nav-desktop-only">Hệ sinh thái</a>
+          <a href="http://192.168.31.100:8123" target="_blank" rel="noopener" class="nav-link nav-desktop-only" title="Home Assistant"><i class="fa-solid fa-house-signal"></i> HA</a>
+          <a href="form.html" class="nav-link nav-desktop-only">Khai báo</a>
+          <a href="login.html" class="nav-link"><i class="fa-solid fa-lock"></i> Vault</a>
+        </div>
+      </header>
 
-        <!-- Mobile Menu Toggle -->
-        <button id="mobileMenuBtn" class="icon-btn mobile-menu-btn" aria-label="Mở menu điều hướng">
-          <i class="fa-solid fa-bars"></i>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <!-- HERO SECTION -->
-    <section class="hero-section" id="home">
-      <div class="container hero-container">
-        <div class="hero-content">
-          <div class="badge hero-badge">
-            <span class="pulse-dot"></span> Xin chào, chào mừng bạn ghé thăm!
+      <!-- ========================================================
+           SCENE 1 UI (z 20)
+           ======================================================== -->
+      <div class="scene1-ui" id="scene1UI">
+        <div class="s1-desktop-hero">
+          <div class="s1-heading-sub">
+            FALL <span class="accent-arrow">›</span> <span class="italic-into">INTO</span>
           </div>
-          <h1 class="hero-title">
-            Nơi tôi chia sẻ về <span class="gradient-text">Lập trình</span>, Công nghệ và Cuộc sống.
-          </h1>
-          <p class="hero-desc">
-            Không gian lưu trữ những trải nghiệm học tập, ghi chép kỹ thuật, các dự án nhỏ và những suy ngẫm mỗi ngày trên hành trình phát triển bản thân.
+          <h1 class="s1-heading-main">REVERIE</h1>
+          <p class="s1-subtext">
+            Không gian số kết nối Home Server Dell OptiPlex 192.168.31.100, bộ công cụ xử lý ảnh sang PDF và các tiện ích công nghệ cá nhân.
           </p>
-          <div class="hero-cta">
-            <a href="#articles" class="btn btn-primary">
-              <i class="fa-solid fa-book-open"></i> Đọc bài viết mới nhất
-            </a>
-            <a href="image-to-pdf.html" class="btn btn-secondary" style="border-color: #ef4444; color: #ef4444;">
-              <i class="fa-solid fa-file-pdf"></i> Chuyển Ảnh sang PDF
-            </a>
-            <a href="form.html" class="btn btn-secondary" style="border-color: var(--primary); color: var(--primary);">
-              <i class="fa-solid fa-id-card"></i> Khai báo thông tin
-            </a>
-            <a href="#about" class="btn btn-secondary">
-              <i class="fa-regular fa-user"></i> Về tác giả
-            </a>
-          </div>
         </div>
 
-        <div class="hero-avatar-wrapper">
-          <div class="avatar-card">
-            <div class="avatar-img-container">
-              <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=500&auto=format&fit=crop&q=80" alt="Ảnh đại diện mèo dễ thương" class="avatar-img" />
-              <div class="avatar-status" title="Sẵn sàng kết nối!">
-                <i class="fa-solid fa-sparkles"></i>
-              </div>
+        <!-- Desktop Reel Cards on Right -->
+        <div class="s1-desktop-cards">
+          <a href="server.html" class="s1-card" style="background-image: url('https://plugin-assets.open-design.ai/plugins/dreamcore-landing/hf_20260525_160507_2ccbb4eb-1469-484f-af25-59168ad9a233-0c7429.webp&w=1280&q=85');">
+            <div class="s1-card-overlay"></div>
+            <div class="s1-card-content">
+              <span class="play-circle"><i class="fa-solid fa-play"></i></span>
+              <span class="card-label">Home Server</span>
             </div>
-            <div class="avatar-info">
-              <h3>Trịnh Việt Cường</h3>
-              <p>IT Petrolimex</p>
-              <div class="social-pills">
-                <a href="https://github.com/Cuong1012" target="_blank" rel="noopener" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener" aria-label="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
-                <a href="https://twitter.com" target="_blank" rel="noopener" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a>
-                <a href="mailto:contact@example.com" aria-label="Email"><i class="fa-regular fa-envelope"></i></a>
-              </div>
+          </a>
+
+          <div class="s1-card number-card">
+            <div class="number-card-body">
+              <div class="number-val">100</div>
+              <div class="number-lbl">LAN 192.168.31.100</div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- ARTICLES SECTION -->
-    <section class="articles-section" id="articles">
-      <div class="container">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Bài viết gần đây</h2>
-            <p class="section-subtitle">Khám phá các bài viết kỹ thuật, cẩm nang và ghi chép thực tế</p>
-          </div>
-
-          <!-- Search Bar -->
-          <div class="search-box">
-            <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input type="text" id="searchInput" placeholder="Tìm kiếm bài viết theo từ khóa..." autocomplete="off" />
-            <button id="clearSearchBtn" class="clear-search-btn" title="Xóa tìm kiếm">&times;</button>
-          </div>
-        </div>
-
-        <!-- Filter Categories -->
-        <div class="categories-filter" id="categoriesFilter">
-          <button class="filter-btn active" data-category="all">Tất cả</button>
-          <button class="filter-btn" data-category="dev">Lập trình & Tech</button>
-          <button class="filter-btn" data-category="frontend">Frontend & UI</button>
-          <button class="filter-btn" data-category="ai">AI & Công cụ</button>
-          <button class="filter-btn" data-category="life">Góc đời sống</button>
-        </div>
-
-        <!-- Posts Grid -->
-        <div class="posts-grid" id="postsGrid">
-          <!-- Rendered dynamically by JavaScript -->
-        </div>
-
-        <!-- Empty State (when search has no results) -->
-        <div class="empty-state" id="emptyState" style="display: none;">
-          <i class="fa-regular fa-folder-open empty-icon"></i>
-          <h3>Không tìm thấy bài viết phù hợp</h3>
-          <p>Thử tìm kiếm với từ khóa khác hoặc chọn xem "Tất cả" danh mục nhé.</p>
-          <button class="btn btn-secondary reset-filter-btn" id="resetFilterBtn">Xem tất cả bài viết</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ABOUT SECTION -->
-    <section class="about-section" id="about">
-      <div class="container about-container">
-        <div class="about-content">
-          <span class="badge">Đôi lời về tác giả</span>
-          <h2 class="section-title">Xin chào, mình là một người đam mê công nghệ & sáng tạo.</h2>
-          <p class="about-text">
-            Chào mừng bạn đến với góc nhỏ trên Internet của mình! Mình bắt đầu viết blog nhằm lưu giữ lại những kiến thức đã học, các bài học kinh nghiệm trong quá trình xây dựng sản phẩm và chia sẻ cùng cộng đồng.
-          </p>
-          <p class="about-text">
-            Tại blog này, bạn sẽ tìm thấy các bài viết về Web Development, cách tối ưu hiệu năng, những công cụ AI mới nhất hỗ trợ công việc và những góc nhìn nhẹ nhàng về cuộc sống.
-          </p>
-
-          <div class="tech-stack">
-            <h4>Công nghệ mình yêu thích:</h4>
-            <div class="tech-badges">
-              <span class="tech-tag"><i class="fa-brands fa-html5"></i> HTML5/CSS3</span>
-              <span class="tech-tag"><i class="fa-brands fa-js"></i> JavaScript</span>
-              <span class="tech-tag"><i class="fa-brands fa-react"></i> React / Next.js</span>
-              <span class="tech-tag"><i class="fa-brands fa-node-js"></i> Node.js</span>
-              <span class="tech-tag"><i class="fa-brands fa-git-alt"></i> Git & GitHub</span>
-              <span class="tech-tag"><i class="fa-solid fa-wand-magic-sparkles"></i> GenAI</span>
+          <a href="image-to-pdf.html" class="s1-card" style="background-image: url('https://plugin-assets.open-design.ai/plugins/dreamcore-landing/hf_20260525_160706_1c153d04-0dfb-4ac9-a4ef-e74f301c329c-8b9d4e.webp&w=1280&q=85');">
+            <div class="s1-card-overlay"></div>
+            <div class="s1-card-content">
+              <span class="play-circle"><i class="fa-solid fa-play"></i></span>
+              <span class="card-label">Ảnh sang PDF</span>
             </div>
-          </div>
+          </a>
         </div>
 
-        <div class="stats-box">
-          <div class="stat-card">
-            <div class="stat-num">5+</div>
-            <div class="stat-label">Năm kinh nghiệm</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num">50+</div>
-            <div class="stat-label">Bài viết chia sẻ</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num">10k+</div>
-            <div class="stat-label">Lượt người đọc</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-num">100%</div>
-            <div class="stat-label">Đam mê & Tâm huyết</div>
+        <!-- Slider dots -->
+        <div class="s1-slider-dots">
+          <div class="dot active"></div>
+          <div class="dot inactive"></div>
+          <div class="dot inactive"></div>
+          <div class="dot inactive"></div>
+        </div>
+
+        <!-- Scroll Cue -->
+        <div class="s1-scroll-cue">
+          <span class="scroll-cue-text">DESCEND</span>
+          <div class="scroll-cue-circle">
+            <i class="fa-solid fa-chevron-down"></i>
           </div>
         </div>
       </div>
-    </section>
 
-    <!-- NEWSLETTER SECTION -->
-    <section class="newsletter-section" id="newsletter">
-      <div class="container">
-        <div class="newsletter-card">
-          <div class="newsletter-icon">
-            <i class="fa-regular fa-paper-plane"></i>
-          </div>
-          <h2 class="newsletter-title">Nhận thông báo khi có bài viết mới</h2>
-          <p class="newsletter-desc">
-            Không spam! Chỉ gửi những bài viết chất lượng cao về công nghệ, lập trình và kinh nghiệm thực tiễn định kỳ hàng tháng.
-          </p>
-          <form class="newsletter-form" id="newsletterForm">
-            <div class="input-group">
-              <input type="email" id="newsletterEmail" placeholder="Nhập địa chỉ email của bạn..." required />
-              <button type="submit" class="btn btn-primary">
-                Đăng ký ngay <i class="fa-solid fa-arrow-right"></i>
-              </button>
-            </div>
-          </form>
-          <div class="form-feedback" id="formFeedback"></div>
-        </div>
+      <!-- ========================================================
+           SCENE 2 UI (z 46)
+           ======================================================== -->
+      <div class="scene2-ui" id="scene2UI">
+        <h2 class="s2-heading">FORGE BEYOND THE REAL</h2>
+        <p class="s2-subtext">
+          Singular voyages to astonishing destinations, shaped for those who seek beauty beyond the ordinary and the known.
+        </p>
+        <a href="#ecosystem" class="s2-scroll-hint" id="s2ScrollHint">
+          <i class="fa-solid fa-arrow-down"></i> Cuộn tiếp để vào Cổng Dịch Vụ Home Server
+        </a>
       </div>
-    </section>
-  </main>
 
-  <!-- MODAL ĐỌC BÀI VIẾT CHI TIẾT -->
-  <div class="article-modal" id="articleModal" aria-hidden="true" role="dialog">
-    <div class="modal-backdrop" id="modalBackdrop"></div>
-    <div class="modal-container">
-      <button class="modal-close-btn" id="modalCloseBtn" aria-label="Đóng bài viết">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-
-      <article class="modal-body" id="modalBody">
-        <!-- Content will be injected by JavaScript -->
-      </article>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="modalShareBtn">
-          <i class="fa-solid fa-share-nodes"></i> Chia sẻ bài viết
-        </button>
-        <button class="btn btn-primary" id="modalDoneBtn">
-          <i class="fa-solid fa-check"></i> Đóng bài viết
-        </button>
-      </div>
     </div>
   </div>
 
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="container footer-content">
-      <div class="footer-left">
-        <a href="#" class="brand-logo footer-logo">
-          <span class="logo-mark"><i class="fa-solid fa-code"></i></span>
-          <span class="logo-text">cuongtv<span class="accent-dot">.</span></span>
-        </a>
-        <p class="footer-copy">
-          &copy; <span id="currentYear"></span> cuongtv. Xây dựng với tình yêu công nghệ và chia sẻ kiến thức miễn phí.
+  <!-- ========================================================
+       SECTION 3: HỆ SINH THÁI DỊCH VỤ & TIỆN ÍCH (SEAMLESS FLOW)
+       ======================================================== -->
+  <section class="ecosystem-section" id="ecosystem">
+    <div class="ecosystem-container">
+      <div class="ecosystem-header">
+        <span class="ecosystem-badge"><i class="fa-solid fa-sparkles"></i> Hệ Sinh Thái Số Hóa</span>
+        <h2 class="ecosystem-title">Cổng Điều Khiển & Công Cụ Tiện Ích</h2>
+        <p class="ecosystem-desc">
+          Kết nối trực tiếp Home Server Dell OptiPlex (192.168.31.100), máy quét tài liệu, clipboard và quản lý dịch vụ gia đình.
         </p>
       </div>
-      <div class="footer-right">
-        <div class="footer-socials">
-          <a href="login.html" title="Đăng nhập riêng tư"><i class="fa-solid fa-lock"></i></a>
-          <a href="https://github.com/Cuong1012" target="_blank" rel="noopener" title="GitHub"><i class="fa-brands fa-github"></i></a>
-          <a href="https://linkedin.com" target="_blank" rel="noopener" title="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
-          <a href="https://facebook.com" target="_blank" rel="noopener" title="Facebook"><i class="fa-brands fa-facebook"></i></a>
-          <a href="#home" class="back-to-top" title="Lên đầu trang"><i class="fa-solid fa-arrow-up"></i></a>
-        </div>
-      </div>
-    </div>
-  </footer>
 
-  <!-- Custom JavaScript -->
-  <script src="js/app.js"></script>
+      <div class="ecosystem-grid">
+        <!-- Card 1: Home Server Dell OptiPlex -->
+        <article class="eco-card featured-server">
+          <div class="eco-card-top">
+            <div class="eco-icon" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">
+              <i class="fa-solid fa-server"></i>
+            </div>
+            <span class="eco-badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">🟢 Live 24/7</span>
+          </div>
+          <h3 class="eco-title">Home Server Dell OptiPlex 7040</h3>
+          <p class="eco-desc">
+            Máy chủ gia đình: theo dõi vi xử lý CPU, bộ nhớ RAM, nhiệt độ phần cứng, Home Assistant, ổ cứng NAS & đèn chiếu sáng WLED.
+          </p>
+          <div class="eco-tags">
+            <span class="eco-tag"><i class="fa-solid fa-network-wired"></i> 192.168.31.100</span>
+            <span class="eco-tag" id="ecoTunnelTag"><i class="fa-solid fa-cloud"></i> Cloudflare Tunnel</span>
+            <span class="eco-tag"><i class="fa-solid fa-microchip"></i> Telemetry</span>
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: auto;">
+            <a href="server.html" class="eco-btn eco-btn-server" style="flex: 1;">
+              <i class="fa-solid fa-gauge-high"></i> Mở Dashboard
+            </a>
+            <a href="http://192.168.31.100:8123" target="_blank" rel="noopener" class="eco-btn eco-btn-secondary" title="Mở Home Assistant">
+              <i class="fa-solid fa-house-signal"></i> HA
+            </a>
+          </div>
+        </article>
+
+        <!-- Card 2: Image to PDF Scanner -->
+        <article class="eco-card">
+          <div class="eco-card-top">
+            <div class="eco-icon" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">
+              <i class="fa-solid fa-file-pdf"></i>
+            </div>
+            <span class="eco-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444;">Scanner PDF</span>
+          </div>
+          <h3 class="eco-title">Bộ Chuyển Ảnh Sang PDF (Scanner)</h3>
+          <p class="eco-desc">
+            Quét tài liệu từ camera trực tiếp hoặc tải ảnh hàng loạt, tự động căn chỉnh phối cảnh 4 góc, bộ lọc làm sạch nền và giữ nguyên màu con dấu đỏ.
+          </p>
+          <div class="eco-tags">
+            <span class="eco-tag"><i class="fa-solid fa-camera"></i> Camera Scan</span>
+            <span class="eco-tag"><i class="fa-solid fa-stamp"></i> Giữ dấu đỏ</span>
+            <span class="eco-tag"><i class="fa-solid fa-crop-simple"></i> Cắt 4 góc</span>
+          </div>
+          <a href="image-to-pdf.html" class="eco-btn eco-btn-primary" style="margin-top: auto;">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Sử dụng ngay
+          </a>
+        </article>
+
+        <!-- Card 3: Clipboard Image Viewer -->
+        <article class="eco-card">
+          <div class="eco-card-top">
+            <div class="eco-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+              <i class="fa-regular fa-image"></i>
+            </div>
+            <span class="eco-badge" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">Tức thì (Ctrl+V)</span>
+          </div>
+          <h3 class="eco-title">Xem & Trích Xuất Ảnh Clipboard</h3>
+          <p class="eco-desc">
+            Chỉ cần bấm Ctrl + V để xem ngay hình ảnh chụp màn hình từ bộ nhớ tạm, hỗ trợ zoom chi tiết từng pixel và tải xuống máy tính nhanh gọn.
+          </p>
+          <div class="eco-tags">
+            <span class="eco-tag"><i class="fa-solid fa-paste"></i> Phím Ctrl+V</span>
+            <span class="eco-tag"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom pixel</span>
+            <span class="eco-tag"><i class="fa-solid fa-download"></i> Tải PNG</span>
+          </div>
+          <a href="clipboard.html" class="eco-btn eco-btn-primary" style="margin-top: auto;">
+            <i class="fa-solid fa-eye"></i> Mở Clipboard
+          </a>
+        </article>
+
+        <!-- Card 4: Form Declaration -->
+        <article class="eco-card">
+          <div class="eco-card-top">
+            <div class="eco-icon" style="background: rgba(139, 92, 246, 0.2); color: #8b5cf6;">
+              <i class="fa-solid fa-id-card"></i>
+            </div>
+            <span class="eco-badge" style="background: rgba(139, 92, 246, 0.2); color: #8b5cf6;">Biểu mẫu trực tuyến</span>
+          </div>
+          <h3 class="eco-title">Biểu Mẫu Khai Báo Hồ Sơ</h3>
+          <p class="eco-desc">
+            Cổng khai báo hồ sơ thông tin trực tuyến chuẩn hóa: kiểm tra hợp lệ dữ liệu tự động, lưu trữ bảo mật và xuất báo cáo tiện lợi.
+          </p>
+          <div class="eco-tags">
+            <span class="eco-tag"><i class="fa-solid fa-check-double"></i> Validate</span>
+            <span class="eco-tag"><i class="fa-solid fa-file-export"></i> Xuất dữ liệu</span>
+          </div>
+          <a href="form.html" class="eco-btn eco-btn-primary" style="margin-top: auto;">
+            <i class="fa-solid fa-arrow-right"></i> Vào biểu mẫu
+          </a>
+        </article>
+
+        <!-- Card 5: Private Vault -->
+        <article class="eco-card">
+          <div class="eco-card-top">
+            <div class="eco-icon" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">
+              <i class="fa-solid fa-lock"></i>
+            </div>
+            <span class="eco-badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">Bảo mật cao</span>
+          </div>
+          <h3 class="eco-title">Khu Vực Riêng Tư & Smart Home</h3>
+          <p class="eco-desc">
+            Bảng điều khiển công tắc thông minh Sonoff/eWeLink, phát âm thanh loa Google Home Cast TTS, máy lạnh Panasonic và quản lý thiết bị gia đình.
+          </p>
+          <div class="eco-tags">
+            <span class="eco-tag"><i class="fa-solid fa-shield"></i> Mã hóa</span>
+            <span class="eco-tag"><i class="fa-solid fa-lightbulb"></i> eWeLink IoT</span>
+          </div>
+          <a href="login.html" class="eco-btn eco-btn-primary" style="margin-top: auto;">
+            <i class="fa-solid fa-key"></i> Đăng nhập quản trị
+          </a>
+        </article>
+
+        <!-- Card 6: FileBrowser NAS -->
+        <article class="eco-card">
+          <div class="eco-card-top">
+            <div class="eco-icon" style="background: rgba(14, 165, 233, 0.2); color: #0ea5e9;">
+              <i class="fa-solid fa-folder-tree"></i>
+            </div>
+            <span class="eco-badge" style="background: rgba(14, 165, 233, 0.2); color: #0ea5e9;">NAS Storage</span>
+          </div>
+          <h3 class="eco-title">Ổ Cứng Mạng & Quản Lý File (NAS)</h3>
+          <p class="eco-desc">
+            FileBrowser Web UI quản lý kho dữ liệu NAS_Data dung lượng lớn, xem video, nghe nhạc, chia sẻ tệp tốc độ cao mạng nội bộ LAN.
+          </p>
+          <div class="eco-tags">
+            <span class="eco-tag"><i class="fa-solid fa-hard-drive"></i> NAS_Data</span>
+            <span class="eco-tag"><i class="fa-solid fa-share-nodes"></i> Chia sẻ tệp</span>
+            <span class="eco-tag"><i class="fa-solid fa-bolt"></i> 1Gbps LAN</span>
+          </div>
+          <a href="/nas" class="eco-btn eco-btn-primary" style="margin-top: auto;">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Mở FileBrowser NAS
+          </a>
+        </article>
+      </div>
+
+      <!-- Footer -->
+      <footer class="ecosystem-footer">
+        <div>
+          &copy; <span id="currentYear"></span> Trịnh Việt Cường. Vận hành trên GitHub Pages & Home Server Dell OptiPlex (LAN 192.168.31.100).
+        </div>
+        <div class="footer-links">
+          <a href="server.html"><i class="fa-solid fa-server"></i> Home Server</a>
+          <a href="https://github.com/Cuong1012" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i> GitHub</a>
+          <a href="#top"><i class="fa-solid fa-arrow-up"></i> Lên đầu trang</a>
+        </div>
+      </footer>
+    </div>
+  </section>
+
+  <!-- ========================================================
+       PARALLAX ENGINE JAVASCRIPT
+       ======================================================== -->
+  <script>
+    // 1. Arc Cards Data (9 Cards locked & mapped to personal ecosystem)
+    const CARDS_DATA = [
+      { title: 'Home Server',    badge: '192.168.31.100', desc: 'Máy chủ Dell OptiPlex 7040 & Cloudflare Tunnel', color: '#f3cdd6', link: 'server.html' },
+      { title: 'Scanner PDF',    badge: 'Quét tài liệu',  desc: 'Tự động cắt góc & giữ nguyên màu dấu đỏ',        color: '#dcedc2', link: 'image-to-pdf.html' },
+      { title: 'Clipboard View', badge: 'Ảnh tức thì',   desc: 'Xem và xuất ảnh bộ nhớ tạm chỉ với Ctrl+V',      color: '#c3e3f4', link: 'clipboard.html' },
+      { title: 'Khai Báo',       badge: 'Hồ sơ online',   desc: 'Biểu mẫu chuẩn hóa & xuất báo cáo dữ liệu',      color: '#f0e4c0', link: 'form.html' },
+      { title: 'Private Vault',  badge: 'Quản trị IoT',   desc: 'Smart Home điều khiển công tắc & thiết bị',      color: '#dcd2f2', link: 'login.html' },
+      { title: 'Telemetry',      badge: 'Giám sát 24/7',  desc: 'Theo dõi CPU, RAM & cảm biến nhiệt độ máy chủ',  color: '#f3cdd6', link: 'server.html' },
+      { title: 'Lọc Ảnh Đen',    badge: 'Scan Engine',    desc: 'Tăng tương phản & làm sạch phông nền tài liệu',  color: '#c3e3f4', link: 'image-to-pdf.html' },
+      { title: 'Tiện Ích Nhanh', badge: 'Bộ nhớ tạm',     desc: 'Phóng to từng pixel & tải ảnh PNG sắc nét',      color: '#f0e4c0', link: 'clipboard.html' },
+      { title: 'Smart LAN',      badge: 'Home Assistant', desc: 'Hệ thống tự động hóa nhà thông minh gia đình',   color: '#dcedc2', link: 'server.html' }
+    ];
+
+    // Helper functions
+    const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const clamp = (v, mn, mx) => Math.min(Math.max(v, mn), mx);
+
+    // DOM Elements
+    const container = document.getElementById('parallaxContainer');
+    const worldBg = document.getElementById('worldBg');
+    const bottomClouds = document.getElementById('bottomClouds');
+    const portalBg = document.getElementById('portalBg');
+    const curtainLeft = document.getElementById('curtainLeft');
+    const curtainRight = document.getElementById('curtainRight');
+    const scene1UI = document.getElementById('scene1UI');
+    const scene2UI = document.getElementById('scene2UI');
+    const arcCardSlider = document.getElementById('arcCardSlider');
+    const ecoTunnelTag = document.getElementById('ecoTunnelTag');
+    const currentYearEl = document.getElementById('currentYear');
+
+    if (currentYearEl) currentYearEl.textContent = new Date().getFullYear();
+
+    // 2. Build Arc Card Elements
+    function buildArcCards() {
+      arcCardSlider.innerHTML = '';
+      CARDS_DATA.forEach((card, i) => {
+        const el = document.createElement('a');
+        el.href = card.link || '#';
+        el.className = 'arc-card';
+        el.style.backgroundColor = card.color;
+        el.innerHTML = `
+          <div class="arc-card-top-row">
+            <span class="arc-card-tag">${card.badge}</span>
+            <div class="arc-card-num">${String(i + 1).padStart(2, '0')}</div>
+          </div>
+          <div>
+            <div class="arc-card-title">${card.title}</div>
+            <div class="arc-card-desc">${card.desc}</div>
+          </div>
+        `;
+        arcCardSlider.appendChild(el);
+      });
+    }
+    buildArcCards();
+
+    // 3. Ultra-Smooth Performance Optimization: Dimension Caching (Zero Layout Thrashing in RAF)
+    let totalScroll = 1;
+    let windowWidth = window.innerWidth;
+    let windowHeight = window.innerHeight;
+    let cachedIsMobile = windowWidth <= 767;
+
+    function onResize() {
+      windowWidth = window.innerWidth;
+      windowHeight = window.innerHeight;
+      cachedIsMobile = windowWidth <= 767;
+      totalScroll = Math.max(1, container.scrollHeight - windowHeight);
+    }
+    window.addEventListener('resize', onResize, { passive: true });
+    window.addEventListener('orientationchange', onResize, { passive: true });
+    onResize();
+
+    // 4. Mouse Parallax Tracker (Passive listener)
+    let rawMouseX = 0;
+    let rawMouseY = 0;
+    let smoothMouseX = 0;
+    let smoothMouseY = 0;
+
+    window.addEventListener('mousemove', (e) => {
+      rawMouseX = (e.clientX / windowWidth) * 2 - 1;
+      rawMouseY = (e.clientY / windowHeight) * 2 - 1;
+    }, { passive: true });
+
+    // 5. Entrance Milestones
+    let entranceDone = false;
+
+    // t = 100ms: Open curtains
+    setTimeout(() => {
+      curtainLeft.style.transition = 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1)';
+      curtainRight.style.transition = 'transform 1.8s cubic-bezier(0.16, 1, 0.3, 1)';
+      curtainLeft.style.transform = 'translateX(-62%)';
+      curtainRight.style.transform = 'translateX(62%)';
+    }, 100);
+
+    // t = 600ms: Reveal UI
+    setTimeout(() => {
+      document.body.classList.add('ui-visible');
+    }, 600);
+
+    // t = 2200ms: Parallax becomes instant
+    setTimeout(() => {
+      entranceDone = true;
+      curtainLeft.style.transition = 'none';
+      curtainRight.style.transition = 'none';
+    }, 2200);
+
+    // 6. Live Server Status Check (Smart LAN vs Cloud detection)
+    async function checkLiveServer() {
+      const isLan = location.hostname === '192.168.31.100' || location.hostname === 'localhost' || location.hostname.startsWith('192.168.');
+      if (isLan && ecoTunnelTag) {
+        ecoTunnelTag.innerHTML = `<i class="fa-solid fa-network-wired"></i> <strong>LAN 192.168.31.100</strong> (1Gbps)`;
+      }
+
+      try {
+        const res = await fetch(`server-status.json?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.cloudUrl && ecoTunnelTag) {
+            if (isLan) {
+              ecoTunnelTag.innerHTML = `<i class="fa-solid fa-network-wired"></i> LAN 192.168.31.100 · <a href="${data.cloudUrl}" target="_blank" style="color:inherit; text-decoration:underline;">Cloud Tunnel</a>`;
+            } else {
+              ecoTunnelTag.innerHTML = `<i class="fa-solid fa-cloud"></i> <a href="${data.cloudUrl}" target="_blank" style="color:inherit; text-decoration:underline;">Cloud Tunnel Online</a>`;
+            }
+          }
+        }
+      } catch (err) {}
+    }
+    checkLiveServer();
+
+    // 7. Main Parallax Render Loop (60/120 FPS Optimized)
+    function renderLoop() {
+      // Smooth mouse lerp
+      smoothMouseX = lerp(smoothMouseX, rawMouseX, 0.07);
+      smoothMouseY = lerp(smoothMouseY, rawMouseY, 0.07);
+
+      // Scroll Progress inside 480vh track (uses cached totalScroll)
+      const scrollProgress = clamp(window.scrollY / totalScroll, 0, 1);
+      const ep = easeInOut(scrollProgress);
+
+      // Mouse MAG offsets (reverse direction)
+      const mouseOffset = (mag, dampY = 1) => ({
+        x: -smoothMouseX * mag,
+        y: -smoothMouseY * mag * dampY
+      });
+
+      // 1. World Background (z 0): scale 1.05 -> 1.24 to ensure no edge leaks
+      const worldMouse = mouseOffset(6);
+      const worldScale = lerp(1.05, 1.24, ep);
+      worldBg.style.transform = `translate3d(${worldMouse.x.toFixed(1)}px, ${worldMouse.y.toFixed(1)}px, 0) scale(${worldScale.toFixed(3)})`;
+
+      // 2. Bottom Clouds (z 10): scale 1 -> 1.45, MAG = 9 (Y x0.4), Opacity 0.7 -> 1 in first 5%
+      const cloudsMouse = mouseOffset(9, 0.4);
+      const cloudsScale = lerp(1, 1.45, ep);
+      const cloudsOpacity = clamp(0.7 + (scrollProgress / 0.05) * 0.3, 0.7, 1);
+      bottomClouds.style.transform = `translate3d(${cloudsMouse.x.toFixed(1)}px, ${cloudsMouse.y.toFixed(1)}px, 0) scale(${cloudsScale.toFixed(3)})`;
+      bottomClouds.style.opacity = cloudsOpacity.toFixed(2);
+
+      // 3. Portal Frame (z 15): scale 1 -> 7.5, MAG = 7, Opacity 1 -> 0 between 0.60 and 0.82
+      const portalOpacity = clamp(1 - (scrollProgress - 0.60) / 0.22, 0, 1);
+      if (portalOpacity > 0.01) {
+        portalBg.style.visibility = 'visible';
+        const portalMouse = mouseOffset(7);
+        const portalScale = lerp(1, 7.5, ep);
+        portalBg.style.transform = `translate3d(${portalMouse.x.toFixed(1)}px, ${portalMouse.y.toFixed(1)}px, 0) scale(${portalScale.toFixed(3)})`;
+        portalBg.style.opacity = portalOpacity.toFixed(2);
+      } else {
+        portalBg.style.visibility = 'hidden';
+      }
+
+      // 4 & 5. Curtains Left & Right (z 16)
+      if (entranceDone) {
+        const cLeftMouse = mouseOffset(14, 0.3);
+        const cRightMouse = mouseOffset(14, 0.3);
+        const curtainScrollPercent = lerp(0, 150, ep);
+        const curtainScale = lerp(1, 1.3, ep);
+
+        curtainLeft.style.transform = `translateX(-${(62 + curtainScrollPercent).toFixed(1)}%) translate3d(${cLeftMouse.x.toFixed(1)}px, ${cLeftMouse.y.toFixed(1)}px, 0) scale(${curtainScale.toFixed(3)})`;
+        curtainRight.style.transform = `translateX(${(62 + curtainScrollPercent).toFixed(1)}%) translate3d(${cRightMouse.x.toFixed(1)}px, ${cRightMouse.y.toFixed(1)}px, 0) scale(${curtainScale.toFixed(3)})`;
+      }
+
+      // 6. Scene 1 UI: Opacity = clamp(1 - scrollProgress / 0.22, 0, 1)
+      const scene1Opacity = clamp(1 - scrollProgress / 0.22, 0, 1);
+      if (scene1Opacity > 0.01) {
+        scene1UI.style.visibility = 'visible';
+        scene1UI.style.opacity = scene1Opacity.toFixed(2);
+        scene1UI.style.pointerEvents = 'auto';
+      } else {
+        scene1UI.style.visibility = 'hidden';
+        scene1UI.style.opacity = '0';
+        scene1UI.style.pointerEvents = 'none';
+      }
+
+      // 7. Scene 2 UI: Opacity = clamp((scrollProgress - 0.58) / 0.18, 0, 1)
+      const scene2Opacity = clamp((scrollProgress - 0.58) / 0.18, 0, 1);
+      if (scene2Opacity > 0.01) {
+        scene2UI.style.visibility = 'visible';
+        scene2UI.style.opacity = scene2Opacity.toFixed(2);
+      } else {
+        scene2UI.style.visibility = 'hidden';
+        scene2UI.style.opacity = '0';
+      }
+
+      // 8. Arc Card Slider Geometry (z 25)
+      if (scene2Opacity > 0.02) {
+        arcCardSlider.style.visibility = 'visible';
+        arcCardSlider.style.opacity = scene2Opacity.toFixed(2);
+        arcCardSlider.style.pointerEvents = 'auto';
+
+        const cardSpacingDeg = cachedIsMobile ? 11 : 8.5;
+        const arcRadius = cachedIsMobile ? 650 : 960;
+        const cardW = cachedIsMobile ? 160 : 210;
+        const halfW = cardW / 2;
+        const baselineY = cachedIsMobile ? 100 : 130;
+
+        // Rotation drives across all cards from 0.60 to 0.98
+        const maxRotation = (CARDS_DATA.length - 1) * cardSpacingDeg;
+        const rotProgress = clamp((scrollProgress - 0.60) / 0.38, 0, 1);
+        const rotationOffset = lerp(0, maxRotation, rotProgress);
+
+        const cardNodes = arcCardSlider.querySelectorAll('.arc-card');
+        cardNodes.forEach((node, i) => {
+          const deg = (i * cardSpacingDeg) - rotationOffset;
+          const rad = (deg * Math.PI) / 180;
+          const x = Math.sin(rad) * arcRadius;
+          const y = arcRadius - Math.cos(rad) * arcRadius;
+
+          node.style.bottom = `${(-y + baselineY).toFixed(1)}px`;
+          node.style.left = `calc(50% + ${x.toFixed(1)}px - ${halfW}px)`;
+          node.style.transform = `rotate(${deg.toFixed(2)}deg)`;
+          node.style.transformOrigin = `${halfW}px ${arcRadius}px`;
+
+          // Softly fade cards that curve far to the sides so they look graceful
+          const absDeg = Math.abs(deg);
+          if (absDeg > 35) {
+            node.style.opacity = Math.max(0, 1 - (absDeg - 35) / 15).toFixed(2);
+          } else {
+            node.style.opacity = '1';
+          }
+        });
+      } else {
+        arcCardSlider.style.visibility = 'hidden';
+        arcCardSlider.style.opacity = '0';
+        arcCardSlider.style.pointerEvents = 'none';
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    // Start loop on load
+    window.addEventListener('DOMContentLoaded', () => {
+      onResize();
+      requestAnimationFrame(renderLoop);
+    });
+  </script>
 </body>
 </html>
